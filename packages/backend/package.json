@@ -24,6 +24,8 @@
     "better-auth": "^1.2.8",
     "better-sqlite3": "^12.0.0",
     "drizzle-orm": "^0.39.3",
+    "fast-xml-parser": "^5.4.2",
+    "franc-min": "^6.2.0",
     "hono": "^4.7.5",
     "nanoid": "^5.1.2",
     "node-cron": "^3.0.3",
