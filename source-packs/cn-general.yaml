@@ -1,0 +1,51 @@
+# CN General News — 中国综合信息源
+sources:
+  # ── Tier 1: 官方通讯社 ──
+  - name: 新华社
+    type: google-news
+    tier: 1
+    category: politics
+    tags: [politics, cn, official]
+    language: zh
+    fetchConfig:
+      query: "site:xinhuanet.com"
+      hl: zh-CN
+      gl: CN
+      ceid: CN:zh-Hans
+
+  # ── Tier 2: 主流媒体 ──
+  - name: 财新网
+    type: google-news
+    tier: 2
+    category: finance
+    tags: [finance, business, cn]
+    language: zh
+    fetchConfig:
+      query: "site:caixin.com"
+      hl: zh-CN
+      gl: CN
+      ceid: CN:zh-Hans
+
+  - name: 澎湃新闻
+    type: google-news
+    tier: 2
+    category: politics
+    tags: [politics, society, cn]
+    language: zh
+    fetchConfig:
+      query: "site:thepaper.cn"
+      hl: zh-CN
+      gl: CN
+      ceid: CN:zh-Hans
+
+  - name: 界面新闻
+    type: google-news
+    tier: 2
+    category: finance
+    tags: [finance, business, cn]
+    language: zh
+    fetchConfig:
+      query: "site:jiemian.com"
+      hl: zh-CN
+      gl: CN
+      ceid: CN:zh-Hans

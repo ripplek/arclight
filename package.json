@@ -1,0 +1,34 @@
+{
+  "name": "arclight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "智能信息助手 — 理解人类新闻消费习惯的多源聚合与个性化推送服务",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev -w packages/backend",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "build": "npm run build -w packages/shared && npm run build -w packages/backend && npm run build -w packages/frontend",
+    "typecheck": "tsc --build",
+    "lint": "eslint packages/*/src --ext .ts,.tsx",
+    "test": "vitest run",
+    "db:generate": "npm run db:generate -w packages/backend",
+    "db:migrate": "npm run db:migrate -w packages/backend",
+    "db:studio": "npm run db:studio -w packages/backend",
+    "db:migrate:run": "npm run db:migrate:run -w packages/backend",
+    "db:seed": "npm run db:seed -w packages/backend"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.22.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

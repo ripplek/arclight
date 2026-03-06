@@ -1,0 +1,42 @@
+# CN Tech News — 中国科技信息源
+sources:
+  # ── Tier 2: 主流科技媒体 ──
+  - name: 36氪
+    type: google-news
+    tier: 2
+    category: tech
+    tags: [tech, startups, cn]
+    language: zh
+    fetchConfig:
+      query: "site:36kr.com"
+
+  - name: 虎嗅
+    type: google-news
+    tier: 2
+    category: tech
+    tags: [tech, business, cn]
+    language: zh
+    fetchConfig:
+      query: "site:huxiu.com"
+
+  # ── Tier 3: 开发者社区 ──
+  - name: V2EX Hot
+    url: https://www.v2ex.com/index.xml
+    type: rss
+    tier: 4
+    category: tech
+    tags: [tech, dev, community, cn]
+    language: zh
+
+  # ── Tier 2: AI / 前沿技术 (Google News) ──
+  - name: 中国AI新闻
+    type: google-news
+    tier: 2
+    category: ai
+    tags: [ai, cn]
+    language: zh
+    fetchConfig:
+      query: "(百度 OR 阿里 OR 腾讯 OR 字节跳动 OR DeepSeek) 人工智能"
+      hl: zh-CN
+      gl: CN
+      ceid: CN:zh-Hans

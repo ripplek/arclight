@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+*.db
+*.db-wal
+*.db-shm
+data/
+.DS_Store
+*.log
+
+# Build artifacts
+*.js.map
+*.d.ts
+*.d.ts.map
+!drizzle.config.ts
+packages/backend/drizzle.config.js
+packages/backend/drizzle.config.d.ts
+packages/backend/drizzle.config.js.map
+packages/backend/drizzle.config.d.ts.map

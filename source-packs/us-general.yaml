@@ -1,0 +1,79 @@
+# US General News — Tier 1-2 sources
+sources:
+  # ── Tier 1: Wire Services ──
+  - name: Reuters World
+    type: google-news
+    tier: 1
+    category: politics
+    tags: [world, breaking]
+    language: en
+    fetchConfig:
+      query: "site:reuters.com world"
+
+  - name: AP News
+    type: google-news
+    tier: 1
+    category: politics
+    tags: [world, breaking]
+    language: en
+    fetchConfig:
+      query: "site:apnews.com"
+
+  - name: Bloomberg
+    type: google-news
+    tier: 1
+    category: finance
+    tags: [markets, business]
+    language: en
+    fetchConfig:
+      query: "site:bloomberg.com"
+
+  # ── Tier 2: Major Outlets ──
+  - name: BBC World
+    url: https://feeds.bbci.co.uk/news/world/rss.xml
+    type: rss
+    tier: 2
+    category: politics
+    tags: [world]
+    language: en
+
+  - name: NPR News
+    url: https://feeds.npr.org/1001/rss.xml
+    type: rss
+    tier: 2
+    category: politics
+    tags: [us]
+    language: en
+
+  - name: CNN World
+    type: google-news
+    tier: 2
+    category: politics
+    tags: [world]
+    language: en
+    fetchConfig:
+      query: "site:cnn.com world news when:1d"
+
+  - name: Guardian World
+    url: https://www.theguardian.com/world/rss
+    type: rss
+    tier: 2
+    category: politics
+    tags: [world]
+    language: en
+
+  - name: PBS NewsHour
+    url: https://www.pbs.org/newshour/feeds/rss/headlines
+    type: rss
+    tier: 2
+    category: politics
+    tags: [us]
+    language: en
+
+  - name: Al Jazeera
+    url: https://www.aljazeera.com/xml/rss/all.xml
+    type: rss
+    tier: 2
+    category: politics
+    tags: [world, middleeast]
+    language: en
