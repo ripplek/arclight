@@ -25,7 +25,7 @@ export class LLMClient {
       provider: (process.env.LLM_PROVIDER as LLMProvider) || 'none',
       model: process.env.LLM_MODEL,
       apiKey: process.env.LLM_API_KEY,
-      baseUrl: process.env.OLLAMA_BASE_URL,
+      baseUrl: process.env.LLM_BASE_URL || process.env.OLLAMA_BASE_URL,
     };
   }
 
@@ -44,7 +44,11 @@ export class LLMClient {
         break;
       }
       case 'anthropic': {
-        const { anthropic } = await import('@ai-sdk/anthropic');
+        const { createAnthropic } = await import('@ai-sdk/anthropic');
+        const anthropic = createAnthropic({
+          ...(this.config.baseUrl ? { baseURL: this.config.baseUrl } : {}),
+          ...(this.config.apiKey ? { apiKey: this.config.apiKey } : {}),
+        });
         this._model = anthropic(this.config.model || 'claude-sonnet-4-20250514');
         break;
       }
