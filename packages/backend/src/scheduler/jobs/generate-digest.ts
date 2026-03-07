@@ -2,7 +2,10 @@
 import { db } from '../../db/client.js';
 import { userPreferences } from '../../db/schema.js';
 import { generateDigest } from '../../engine/digest/pipeline.js';
+import { PushDispatcher } from '../../engine/push/dispatcher.js';
 import { logger } from '../../shared/logger.js';
+
+const pushDispatcher = new PushDispatcher();
 
 /**
  * Check all users' schedules and generate digests when due.
@@ -24,10 +27,24 @@ export async function checkAndGenerateDigests(): Promise<void> {
 
       try {
         logger.info({ userId: pref.userId, tier, time: currentTime }, 'Generating scheduled digest');
-        await generateDigest(pref.userId, {
+        const result = await generateDigest(pref.userId, {
           tier,
           count: tierSchedule.count || (tier === 'flash' ? 8 : tier === 'daily' ? 8 : 2),
         });
+
+        if (result.items.length > 0) {
+          try {
+            const pushResult = await pushDispatcher.pushDigest(result.id);
+            logger.info({
+              digestId: result.id,
+              tier,
+              pushStatus: pushResult.overallStatus,
+              channels: pushResult.results.length,
+            }, 'Auto-push completed');
+          } catch (pushErr) {
+            logger.error({ err: pushErr, digestId: result.id }, 'Auto-push failed');
+          }
+        }
       } catch (err) {
         logger.error({ err, userId: pref.userId, tier }, 'Scheduled digest generation failed');
       }
