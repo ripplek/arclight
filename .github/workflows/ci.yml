@@ -28,6 +28,10 @@ jobs:
 
       - run: npm ci
 
+      # shared must be built first (backend + frontend reference it)
+      - name: Build shared
+        run: npm run build -w packages/shared
+
       - name: TypeScript build check
         run: npm run typecheck
 
@@ -101,7 +105,7 @@ jobs:
 
       - run: npm ci
 
-      # shared 必须先 build，backend 依赖它
+      # shared must be built first (backend references it via composite project)
       - name: Build shared
         run: npm run build -w packages/shared
 
