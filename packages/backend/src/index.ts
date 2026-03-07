@@ -9,8 +9,11 @@ import { sourceRoutes } from './routes/sources.js';
 import { engineRoutes } from './routes/engine.js';
 import { preferencesRoutes } from './routes/preferences.js';
 import { digestRoutes } from './routes/digests.js';
+import { pushRoutes } from './routes/push.js';
 import { getScheduler } from './engine/scheduler.js';
 import { checkAndGenerateDigests } from './scheduler/jobs/generate-digest.js';
+import { initPushChannels } from './engine/push/index.js';
+import { retryFailedPushes } from './scheduler/jobs/retry-push.js';
 
 const app = new Hono();
 
@@ -41,6 +44,7 @@ app.route('/api/v1/sources', sourceRoutes);
 app.route('/api/v1/engine', engineRoutes);
 app.route('/api/v1/me/preferences', preferencesRoutes);
 app.route('/api/v1/me/digests', digestRoutes);
+app.route('/api/v1/push', pushRoutes);
 
 export type AppType = typeof app;
 
@@ -54,9 +58,17 @@ serve({ fetch: app.fetch, port }, (info) => {
 const scheduler = getScheduler();
 scheduler.start();
 
+// Initialize push channels
+initPushChannels();
+
 // Digest generation cron — every minute, check if any user digest is due
 cron.schedule('* * * * *', () => {
   checkAndGenerateDigests().catch((err) => logger.error({ err }, 'Digest scheduler error'));
+});
+
+// Push retry cron — every 2 minutes
+cron.schedule('*/2 * * * *', () => {
+  retryFailedPushes().catch((err) => logger.error({ err }, 'Push retry scheduler error'));
 });
 
 // Graceful shutdown

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 
 // ═══════════════════════════════════════════
 // Users & Auth (better-auth compatible)
@@ -189,9 +189,15 @@ export const userPreferences = sqliteTable('user_preferences', {
   }>(),
   pushChannels: text('push_channels', { mode: 'json' }).$type<{
     web?: { enabled: boolean };
-    email?: { enabled: boolean; address?: string };
-    telegram?: { enabled: boolean; chatId?: string; botToken?: string };
-    webhook?: { enabled: boolean; url?: string };
+    telegram?: {
+      enabled: boolean;
+      chatId?: string;
+      botToken?: string;
+      bindMethod?: 'manual' | 'bot_start';
+      boundAt?: string;
+    };
+    email?: { enabled: boolean; address?: string; verified?: boolean };
+    webhook?: { enabled: boolean; url?: string; headers?: Record<string, string>; secret?: string };
   }>(),
   serendipity: text('serendipity', { mode: 'json' }).$type<{
     enabled: boolean;
@@ -239,8 +245,33 @@ export const digests = sqliteTable('digests', {
   }>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   pushedAt: integer('pushed_at', { mode: 'timestamp' }),
-  pushStatus: text('push_status', { enum: ['pending', 'sent', 'failed'] }).default('pending'),
+  pushStatus: text('push_status', {
+    enum: ['pending', 'sending', 'sent', 'partial', 'failed', 'exhausted', 'skipped'],
+  }).default('pending'),
+  pushAttempts: integer('push_attempts').default(0),
 });
+
+// ═══════════════════════════════════════════
+// Push Logs
+// ═══════════════════════════════════════════
+
+export const pushLogs = sqliteTable('push_logs', {
+  id: text('id').primaryKey(),
+  digestId: text('digest_id').notNull().references(() => digests.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  channelType: text('channel_type', { enum: ['telegram', 'email', 'webhook'] }).notNull(),
+  status: text('status', { enum: ['pending', 'sending', 'sent', 'failed', 'exhausted'] }).notNull(),
+  externalId: text('external_id'),
+  error: text('error'),
+  retryable: integer('retryable').default(0),
+  attempt: integer('attempt').default(1),
+  durationMs: integer('duration_ms'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+  userIdIdx: index('idx_push_logs_user_id').on(table.userId),
+  digestIdIdx: index('idx_push_logs_digest_id').on(table.digestId),
+  retryIdx: index('idx_push_logs_retry').on(table.status, table.retryable),
+}));
 
 // ═══════════════════════════════════════════
 // Consumption Memory

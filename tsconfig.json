@@ -13,6 +13,7 @@
     "declarationMap": true,
     "sourceMap": true
   },
+  "files": [],
   "references": [
     { "path": "./packages/shared" },
     { "path": "./packages/backend" },
