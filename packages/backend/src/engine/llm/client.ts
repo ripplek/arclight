@@ -84,10 +84,21 @@ export class LLMClient {
   async json<T>(prompt: string, schema: z.ZodSchema<T>, system?: string): Promise<T | null> {
     if (!this.isEnabled) return null;
 
+    // Try structured output first, fallback to text-based JSON parsing
     try {
       const model = await this.getModel();
-      const { object } = await generateObject({ model, system, prompt, schema });
-      return object;
+      try {
+        const { object } = await generateObject({ model, system, prompt, schema });
+        return object;
+      } catch {
+        // Fallback: ask for JSON as text and parse it
+        logger.info('generateObject failed, falling back to text-based JSON parsing');
+        const jsonPrompt = prompt + '\n\n请只返回 JSON，不要包含任何其他文字或 markdown 代码块。';
+        const { text } = await generateText({ model, system, prompt: jsonPrompt });
+        const cleaned = text.replace(/```json?\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        return schema.parse(parsed);
+      }
     } catch (err) {
       logger.error({ error: err }, 'LLM JSON generation failed');
       return null;
