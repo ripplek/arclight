@@ -5,7 +5,7 @@ import { eq, desc, gte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { rankItems, type RankedItem } from './ranking.js';
 import { renderDigest, type DigestTier } from './renderer.js';
-import { batchContextInject } from './context-inject.js';
+import { aiEnhanceItems, type EnhancedItem } from './ai-enhance.js';
 import { dedup } from '../dedup.js';
 import type { NormalizedItem } from '../normalizer.js';
 import { logger } from '../../shared/logger.js';
@@ -97,22 +97,29 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
   // 4. Top N
   const topItems = rankedItems.slice(0, itemCount);
 
-  // 5. Context Injection (if LLM enabled)
-  if (llmConfig.contextInjection && llmConfig.provider !== 'none' && tier !== 'flash') {
+  // 5. AI Enhancement (categorize, translate, summarize, context, why-important)
+  // Enable AI enhancement if either user preferences or env var configures an LLM
+  let enhancedItems: EnhancedItem[] = topItems;
+  const llmEnabled =
+    (llmConfig.provider && llmConfig.provider !== 'none') ||
+    (process.env.LLM_PROVIDER && process.env.LLM_PROVIDER !== 'none');
+
+  if (llmEnabled && tier !== 'flash') {
     try {
-      const contexts = await batchContextInject(topItems);
-      for (const item of topItems) {
-        if (contexts.has(item.id)) {
-          item.contextInjection = contexts.get(item.id)!;
-        }
-      }
+      enhancedItems = await aiEnhanceItems(topItems, {
+        includeWhyImportant: tier === 'daily' || tier === 'deep',
+      });
+      logger.info(
+        { enhanced: enhancedItems.filter((i) => i.enhanced).length, total: enhancedItems.length },
+        'AI enhancement applied',
+      );
     } catch (err) {
-      logger.warn({ error: err }, 'Context injection failed, continuing without');
+      logger.warn({ error: err }, 'AI enhancement failed, continuing with raw items');
     }
   }
 
   // 6. Render
-  const { markdown, html } = renderDigest(topItems, tier, date);
+  const { markdown, html } = renderDigest(enhancedItems, tier, date);
 
   // 7. Store
   const digestId = nanoid();
