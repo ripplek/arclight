@@ -1,4 +1,5 @@
 // packages/backend/src/engine/digest/ranking.ts
+import { logger } from '../../shared/logger.js';
 
 export interface RankedItem {
   id: string;
@@ -27,6 +28,8 @@ export interface RankingOptions {
   }[];
   tierWeights: Record<string, number>;
   recencyHours: number;
+  sourceDiversityDecay?: number;
+  maxPerSource?: number;
 }
 
 /**
@@ -37,6 +40,8 @@ export function rankItems(
   options: RankingOptions,
 ): RankedItem[] {
   const now = Date.now();
+  const sourceDiversityDecay = options.sourceDiversityDecay ?? 0.7;
+  const maxPerSource = options.maxPerSource;
 
   const ranked: RankedItem[] = items.map((item) => {
     const tierWeight = options.tierWeights[String(item.tier)] ?? 1.0;
@@ -71,7 +76,66 @@ export function rankItems(
   });
 
   ranked.sort((a, b) => b.score - a.score);
-  return ranked;
+
+  const sourceCounts = new Map<string, number>();
+  const rebalanced: RankedItem[] = [];
+  let penalizedCount = 0;
+  let removedCount = 0;
+
+  for (const item of ranked) {
+    const seen = (sourceCounts.get(item.sourceId) ?? 0) + 1;
+    sourceCounts.set(item.sourceId, seen);
+
+    if (typeof maxPerSource === 'number' && seen > maxPerSource) {
+      removedCount += 1;
+      logger.debug(
+        { itemId: item.id, sourceId: item.sourceId, occurrence: seen, maxPerSource },
+        'Ranking: item removed by source diversity cap',
+      );
+      continue;
+    }
+
+    const multiplier = Math.pow(sourceDiversityDecay, seen - 1);
+    const scoreBefore = item.score;
+    const scoreAfter = scoreBefore * multiplier;
+
+    if (multiplier < 1) {
+      penalizedCount += 1;
+      logger.debug(
+        {
+          itemId: item.id,
+          sourceId: item.sourceId,
+          occurrence: seen,
+          multiplier,
+          scoreBefore,
+          scoreAfter,
+        },
+        'Ranking: source diversity penalty applied',
+      );
+    }
+
+    rebalanced.push({
+      ...item,
+      score: scoreAfter,
+    });
+  }
+
+  if (penalizedCount > 0 || removedCount > 0) {
+    logger.info(
+      {
+        total: ranked.length,
+        output: rebalanced.length,
+        penalizedCount,
+        removedCount,
+        sourceDiversityDecay,
+        maxPerSource: maxPerSource ?? null,
+      },
+      'Ranking: source diversity rebalance complete',
+    );
+  }
+
+  rebalanced.sort((a, b) => b.score - a.score);
+  return rebalanced;
 }
 
 function computeTopicBoost(
