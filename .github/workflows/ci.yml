@@ -28,12 +28,8 @@ jobs:
 
       - run: npm ci
 
-      # shared must be built first (backend + frontend reference it)
-      - name: Build shared
-        run: npm run build -w packages/shared
-
       - name: TypeScript build check
-        run: npm run typecheck
+        run: npx tsc --build --force
 
   # ──────────────────────────────────────────
   # Frontend build 验证（Vite build 产物）
@@ -105,12 +101,9 @@ jobs:
 
       - run: npm ci
 
-      # shared must be built first (backend references it via composite project)
-      - name: Build shared
-        run: npm run build -w packages/shared
-
-      - name: Build backend
-        run: npm run build -w packages/backend
+      # Use tsc --build to handle project references (shared → backend)
+      - name: Build shared + backend
+        run: npx tsc --build packages/backend/tsconfig.json --force
 
   # ──────────────────────────────────────────
   # Lint 检查
