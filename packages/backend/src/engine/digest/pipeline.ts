@@ -6,6 +6,8 @@ import { nanoid } from 'nanoid';
 import { rankItems, type RankedItem } from './ranking.js';
 import { renderDigest, type DigestTier } from './renderer.js';
 import { batchContextInject } from './context-inject.js';
+import { dedup } from '../dedup.js';
+import type { NormalizedItem } from '../normalizer.js';
 import { logger } from '../../shared/logger.js';
 
 export interface GenerateOptions {
@@ -82,8 +84,11 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     };
   }
 
+  // 2.5. Dedup — remove duplicate items before ranking
+  const dedupedItems = dedup(items as unknown as NormalizedItem[], { similarityThreshold: 0.65 });
+
   // 3. Ranking
-  const rankedItems = rankItems(items as unknown as Record<string, unknown>[], {
+  const rankedItems = rankItems(dedupedItems as unknown as Record<string, unknown>[], {
     topics,
     tierWeights: (ranking.tierWeights as Record<string, number>) || { '1': 2.0, '2': 1.5, '3': 1.0, '4': 0.7 },
     recencyHours,

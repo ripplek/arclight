@@ -53,13 +53,24 @@ export function dedup(
 }
 
 /**
+ * Strip publisher suffix from title, e.g.:
+ *   "Trump Demands Iran... - Bloomberg.com" → "Trump Demands Iran..."
+ *   "AI News - The New York Times" → "AI News"
+ */
+function stripPublisher(title: string): string {
+  // Match " - Publisher" or " | Publisher" at end of title
+  return title.replace(/\s+[-–—|]\s+[A-Z][^\s-]{1,}(\s+[A-Z][^\s-]{0,}){0,5}\s*$/, '').trim();
+}
+
+/**
  * 标题相似度：Dice coefficient on bigrams
  */
 export function titleSimilarity(a: string, b: string): number {
   if (!a || !b) return 0;
 
-  const aNorm = a.toLowerCase().trim();
-  const bNorm = b.toLowerCase().trim();
+  // Strip publisher suffixes before comparison
+  const aNorm = stripPublisher(a).toLowerCase().trim();
+  const bNorm = stripPublisher(b).toLowerCase().trim();
 
   if (aNorm === bNorm) return 1;
 
