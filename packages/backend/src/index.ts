@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import cron from 'node-cron';
 import { logger } from './shared/logger.js';
-import { authApp } from './auth/handler.js';
+import { auth } from './auth/index.js';
 import { sourceRoutes } from './routes/sources.js';
 import { engineRoutes } from './routes/engine.js';
 import { preferencesRoutes } from './routes/preferences.js';
@@ -16,7 +16,7 @@ const app = new Hono();
 
 // Middleware
 app.use('*', cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
   credentials: true,
 }));
 app.use('*', honoLogger());
@@ -31,7 +31,10 @@ app.get('/api/health', (c) => {
 });
 
 // Auth routes — better-auth handles /api/auth/*
-app.route('/api/auth', authApp);
+app.on(['GET', 'POST'], '/api/auth/*', (c) => {
+  logger.info({ rawUrl: c.req.raw.url, reqPath: c.req.path }, 'Auth handler invoked');
+  return auth.handler(c.req.raw);
+});
 
 // API routes
 app.route('/api/v1/sources', sourceRoutes);
