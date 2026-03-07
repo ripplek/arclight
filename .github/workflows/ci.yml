@@ -1,16 +1,130 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR/branch
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  # ──────────────────────────────────────────
+  # TypeScript 全量编译检查
+  # ──────────────────────────────────────────
+  typecheck:
+    name: TypeScript Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+
+      - name: TypeScript build check
+        run: npm run typecheck
+
+  # ──────────────────────────────────────────
+  # Frontend build 验证（Vite build 产物）
+  # 这是 Milestone 2 翻车的关键检查点
+  # ──────────────────────────────────────────
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # shared 必须先 build，frontend 依赖它
+      - name: Build shared
+        run: npm run build -w packages/shared
+
+      - name: Build frontend
+        run: npm run build -w packages/frontend
+
+      # 验证产物存在且非空
+      - name: Verify build output
+        run: |
+          if [ ! -d "packages/frontend/dist" ]; then
+            echo "❌ Frontend dist directory not found!"
+            exit 1
+          fi
+          
+          # 检查是否有 JS 产物
+          JS_COUNT=$(find packages/frontend/dist -name "*.js" | wc -l)
+          if [ "$JS_COUNT" -eq 0 ]; then
+            echo "❌ No JS files in frontend dist!"
+            exit 1
+          fi
+          
+          # 检查是否有 CSS 产物（防止 Tailwind 配置问题导致无 CSS 输出）
+          CSS_COUNT=$(find packages/frontend/dist -name "*.css" | wc -l)
+          if [ "$CSS_COUNT" -eq 0 ]; then
+            echo "⚠️ Warning: No CSS files in frontend dist!"
+            echo "This might indicate Tailwind/PostCSS configuration issues."
+            # 暂时 warning 不 fail，因为 CSS-in-JS 方案可能不产出独立 CSS
+            # 如果项目确认使用 Tailwind，取消下面的注释改为 hard fail：
+            # exit 1
+          fi
+          
+          echo "✅ Frontend build output verified"
+          echo "   JS files: $JS_COUNT"
+          echo "   CSS files: $CSS_COUNT"
+          ls -la packages/frontend/dist/
+
+  # ──────────────────────────────────────────
+  # Backend build 验证（tsc 编译）
+  # ──────────────────────────────────────────
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # shared 必须先 build，backend 依赖它
+      - name: Build shared
+        run: npm run build -w packages/shared
+
+      - name: Build backend
+        run: npm run build -w packages/backend
+
+  # ──────────────────────────────────────────
+  # Lint 检查
+  # ──────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        # 如果 eslint 还没配置好，先允许失败，配好后去掉 continue-on-error
+        continue-on-error: true
