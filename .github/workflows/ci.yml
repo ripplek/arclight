@@ -29,7 +29,7 @@ jobs:
       - run: npm ci
 
       - name: TypeScript build check
-        run: npm run typecheck
+        run: npx tsc --build --force
 
   # ──────────────────────────────────────────
   # Frontend build 验证（Vite build 产物）
@@ -101,12 +101,9 @@ jobs:
 
       - run: npm ci
 
-      # shared 必须先 build，backend 依赖它
-      - name: Build shared
-        run: npm run build -w packages/shared
-
-      - name: Build backend
-        run: npm run build -w packages/backend
+      # Use tsc --build to handle project references (shared → backend)
+      - name: Build shared + backend
+        run: npx tsc --build packages/backend/tsconfig.json --force
 
   # ──────────────────────────────────────────
   # Lint 检查
