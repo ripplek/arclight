@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
-import { api, ApiError } from '@/lib/api';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -23,9 +23,26 @@ interface Stats {
   errorSources: number;
 }
 
+interface ArcCountResponse {
+  data: unknown[];
+  total?: number;
+  pagination?: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
+}
+
+function getArcTotalCount(res: ArcCountResponse): number {
+  if (typeof res.total === 'number') return res.total;
+  if (typeof res.pagination?.total === 'number') return res.pagination.total;
+  return Array.isArray(res.data) ? res.data.length : 0;
+}
+
 export default function Dashboard() {
   const [latestDigest, setLatestDigest] = useState<DigestDetail | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [activeArcCount, setActiveArcCount] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -38,6 +55,11 @@ export default function Dashboard() {
     api.get<{ data: Stats }>('/api/v1/engine/stats')
       .then((res) => setStats(res.data))
       .catch(() => { /* not admin */ });
+
+    // Load active arc count
+    api.get<ArcCountResponse>('/api/v1/arcs?status=active&limit=1&offset=0')
+      .then((res) => setActiveArcCount(getArcTotalCount(res)))
+      .catch(() => { /* arc endpoint unavailable */ });
   }, []);
 
   async function generateDaily() {
@@ -61,7 +83,7 @@ export default function Dashboard() {
         欢迎使用 ArcLight — 你的智能信息助手
       </p>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-neutral-500">信源数量</CardTitle>
@@ -81,6 +103,17 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{stats?.totalItems ?? '—'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-neutral-500">故事线追踪</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{activeArcCount ?? '—'}</p>
+            {activeArcCount !== null && (
+              <p className="text-sm text-neutral-500 mt-1">正在追踪 {activeArcCount} 条故事线</p>
+            )}
           </CardContent>
         </Card>
         <Card>
