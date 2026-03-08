@@ -150,7 +150,7 @@ export const storyArcs = sqliteTable('story_arcs', {
   buzzScore: real('buzz_score').default(0),
   summaryUpdatedAt: integer('summary_updated_at', { mode: 'timestamp' }),
   titleSource: text('title_source', { enum: ['rule', 'llm', 'user'] }).notNull().default('rule'),
-  mergedIntoId: text('merged_into_id').references(() => storyArcs.id),
+  mergedIntoId: text('merged_into_id'),
   timeline: text('timeline', { mode: 'json' }).$type<{
     date: string;
     headline: string;
