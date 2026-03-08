@@ -60,7 +60,8 @@ export interface FeedItem {
   arc?: {
     id: string;
     title: string;
-    position: number;
+    relevanceScore?: number;
+    isKeyEvent?: boolean;
     daysSinceStart: number;
   };
 

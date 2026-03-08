@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ═══════════════════════════════════════════
 // Users & Auth (better-auth compatible)
@@ -141,25 +141,61 @@ export const storyArcs = sqliteTable('story_arcs', {
   summary: text('summary'),
   tags: text('tags', { mode: 'json' }).$type<string[]>().default([]),
   entities: text('entities', { mode: 'json' }).$type<string[]>().default([]),
-  status: text('status', { enum: ['active', 'dormant', 'closed'] }).notNull().default('active'),
+  keywords: text('keywords', { mode: 'json' }).$type<string[]>().default([]),
+  status: text('status', { enum: ['active', 'stale', 'archived'] }).notNull().default('active'),
   firstSeen: integer('first_seen', { mode: 'timestamp' }).notNull(),
   lastUpdated: integer('last_updated', { mode: 'timestamp' }).notNull(),
   itemCount: integer('item_count').default(0),
+  sourceCount: integer('source_count').default(0),
+  buzzScore: real('buzz_score').default(0),
+  summaryUpdatedAt: integer('summary_updated_at', { mode: 'timestamp' }),
+  titleSource: text('title_source', { enum: ['rule', 'llm', 'user'] }).notNull().default('rule'),
+  mergedIntoId: text('merged_into_id').references(() => storyArcs.id),
   timeline: text('timeline', { mode: 'json' }).$type<{
     date: string;
     headline: string;
     itemId: string;
   }[]>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-});
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+  userStatusLastUpdatedIdx: index('idx_story_arcs_user_status_last_updated').on(table.userId, table.status, table.lastUpdated),
+  userLastUpdatedIdx: index('idx_story_arcs_user_last_updated').on(table.userId, table.lastUpdated),
+  statusLastUpdatedIdx: index('idx_story_arcs_status_last_updated').on(table.status, table.lastUpdated),
+  mergedIntoIdx: index('idx_story_arcs_merged_into').on(table.mergedIntoId),
+}));
 
 export const arcItems = sqliteTable('arc_items', {
   id: text('id').primaryKey(),
   arcId: text('arc_id').notNull().references(() => storyArcs.id),
   itemId: text('item_id').notNull().references(() => feedItems.id),
-  position: integer('position').notNull(),
+  relevanceScore: real('relevance_score').notNull().default(1.0),
+  isKeyEvent: integer('is_key_event').notNull().default(0),
+  headline: text('headline'),
   addedAt: integer('added_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => ({
+  arcItemUnique: uniqueIndex('uidx_arc_items_arc_item').on(table.arcId, table.itemId),
+  arcAddedAtIdx: index('idx_arc_items_arc_added_at').on(table.arcId, table.addedAt),
+  itemIdIdx: index('idx_arc_items_item_id').on(table.itemId),
+}));
+
+export const buzzEvents = sqliteTable('buzz_events', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  arcId: text('arc_id').references(() => storyArcs.id),
+  itemId: text('item_id').notNull().references(() => feedItems.id),
+  sourceId: text('source_id').references(() => feedSources.id),
+  entity: text('entity').notNull(),
+  score: real('score').notNull().default(0),
+  velocity: real('velocity').default(0),
+  sourceCount: integer('source_count').default(0),
+  eventAt: integer('event_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+  userEventAtIdx: index('idx_buzz_events_user_event_at').on(table.userId, table.eventAt),
+  arcEventAtIdx: index('idx_buzz_events_arc_event_at').on(table.arcId, table.eventAt),
+  entityEventAtIdx: index('idx_buzz_events_entity_event_at').on(table.entity, table.eventAt),
+}));
 
 // ═══════════════════════════════════════════
 // User Preferences

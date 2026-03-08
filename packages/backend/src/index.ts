@@ -10,10 +10,13 @@ import { engineRoutes } from './routes/engine.js';
 import { preferencesRoutes } from './routes/preferences.js';
 import { digestRoutes } from './routes/digests.js';
 import { pushRoutes } from './routes/push.js';
+import { arcRoutes } from './routes/arcs.js';
 import { getScheduler } from './engine/scheduler.js';
 import { checkAndGenerateDigests } from './scheduler/jobs/generate-digest.js';
 import { initPushChannels } from './engine/push/index.js';
 import { retryFailedPushes } from './scheduler/jobs/retry-push.js';
+import { cleanupOldArcs, updateArcStatuses } from './engine/arc/lifecycle.js';
+import { getCandidatePool } from './engine/arc/candidate-pool.js';
 
 const app = new Hono();
 
@@ -45,6 +48,7 @@ app.route('/api/v1/engine', engineRoutes);
 app.route('/api/v1/me/preferences', preferencesRoutes);
 app.route('/api/v1/me/digests', digestRoutes);
 app.route('/api/v1/push', pushRoutes);
+app.route('/api/v1/arcs', arcRoutes);
 
 export type AppType = typeof app;
 
@@ -69,6 +73,14 @@ cron.schedule('* * * * *', () => {
 // Push retry cron — every 2 minutes
 cron.schedule('*/2 * * * *', () => {
   retryFailedPushes().catch((err) => logger.error({ err }, 'Push retry scheduler error'));
+});
+
+// Arc lifecycle cron — every hour
+cron.schedule('0 * * * *', () => {
+  updateArcStatuses()
+    .then(() => cleanupOldArcs())
+    .then(() => getCandidatePool().cleanupExpiredCandidates())
+    .catch((err) => logger.error({ err }, 'Arc lifecycle scheduler error'));
 });
 
 // Graceful shutdown
