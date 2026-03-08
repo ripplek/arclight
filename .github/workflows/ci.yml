@@ -48,7 +48,7 @@ jobs:
 
       - run: npm ci
 
-      # shared 必须先 build，frontend 依赖它
+      # shared 必须先 build（tsc --build --force），frontend 依赖它
       - name: Build shared
         run: npm run build -w packages/shared
 
