@@ -8,6 +8,7 @@ import DigestView from '@/pages/DigestView';
 import Settings from '@/pages/Settings';
 import SettingsTopics from '@/pages/SettingsTopics';
 import SettingsSchedule from '@/pages/SettingsSchedule';
+import SettingsPush from '@/pages/SettingsPush';
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/topics" element={<SettingsTopics />} />
           <Route path="/settings/schedule" element={<SettingsSchedule />} />
+          <Route path="/settings/push" element={<SettingsPush />} />
         </Route>
 
         {/* Redirect */}
