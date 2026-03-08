@@ -1,11 +1,12 @@
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../../db/client.js';
-import { arcItems, feedItems, storyArcs } from '../../db/schema.js';
+import { arcItems, storyArcs } from '../../db/schema.js';
 import { logger } from '../../shared/logger.js';
 import { getCandidatePool } from './candidate-pool.js';
 import { extractEntities } from './entity-extractor.js';
 import { findBestMatch, getArcSnapshotCache } from './matcher.js';
+import { getArcStats, mergeTerms, computeBuzzScore } from './utils.js';
 import type { ArcProcessItem, CandidateGroup } from './types.js';
 
 export async function processItemForArc(item: ArcProcessItem, userId: string): Promise<void> {
@@ -188,23 +189,6 @@ async function createArcFromCandidateGroup(userId: string, group: CandidateGroup
   logger.info({ userId, arcId, itemCount, sourceCount, title }, 'New story arc created from candidate pool');
 }
 
-async function getArcStats(arcId: string): Promise<{ itemCount: number; sourceCount: number }> {
-  const stats = await db
-    .select({
-      itemCount: count(arcItems.id),
-      sourceCount: sql<number>`count(distinct ${feedItems.sourceId})`,
-    })
-    .from(arcItems)
-    .innerJoin(feedItems, eq(arcItems.itemId, feedItems.id))
-    .where(eq(arcItems.arcId, arcId))
-    .get();
-
-  return {
-    itemCount: Number(stats?.itemCount ?? 0),
-    sourceCount: Number(stats?.sourceCount ?? 0),
-  };
-}
-
 function buildRuleTitle(entities: string[], items: CandidateGroup['items']): string {
   if (entities.length > 0) {
     return `${entities[0]} 事件进展`;
@@ -214,25 +198,12 @@ function buildRuleTitle(entities: string[], items: CandidateGroup['items']): str
   return latest.length > 32 ? `${latest.slice(0, 32)}...` : latest;
 }
 
-function mergeTerms(terms: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const term of terms) {
-    const value = term.trim().replace(/\s+/g, ' ');
-    if (!value) continue;
-    const key = /[a-zA-Z]/.test(value) ? value.toLowerCase() : value;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(value);
-  }
-  return result;
-}
-
 function appendTimeline(
   timeline: { date: string; headline: string; itemId: string }[],
   entry: { date: string; headline: string; itemId: string },
 ): { date: string; headline: string; itemId: string }[] {
   const next = [...timeline.filter((item) => item.itemId !== entry.itemId), entry];
+  next.sort((a, b) => a.date.localeCompare(b.date));
   if (next.length > 50) return next.slice(next.length - 50);
   return next;
 }
@@ -247,7 +218,4 @@ function dateKey(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
 
-function computeBuzzScore(itemCount: number, sourceCount: number): number {
-  // Rule-based baseline used in Phase 1 before Buzz engine.
-  return Number((sourceCount * 0.9 + Math.log2(itemCount + 1)).toFixed(3));
-}
+

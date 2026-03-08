@@ -87,6 +87,9 @@ export class ArcSnapshotCache {
   }
 }
 
+// NOTE: Process-level singleton. In multi-process/cluster deployments, each instance
+// maintains its own independent cache. Mutations on one instance won't invalidate others.
+// Acceptable for MVP single-process deployment; revisit when scaling horizontally.
 const cache = new ArcSnapshotCache();
 
 export function getArcSnapshotCache(): ArcSnapshotCache {

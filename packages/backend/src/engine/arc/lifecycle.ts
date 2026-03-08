@@ -64,8 +64,7 @@ export async function cleanupOldArcs(): Promise<{ deletedCount: number }> {
     .where(
       and(
         eq(storyArcs.status, 'archived'),
-        lt(storyArcs.lastUpdated, retentionCutoff),
-        isNotNull(storyArcs.updatedAt),
+        lt(storyArcs.updatedAt, retentionCutoff),
       ),
     );
 

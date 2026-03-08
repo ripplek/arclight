@@ -7,6 +7,7 @@ import { db } from '../db/client.js';
 import { arcItems, feedItems, feedSources, storyArcs } from '../db/schema.js';
 import { requireAuth, type AuthVariables } from '../middleware/auth.js';
 import { getArcSnapshotCache } from '../engine/arc/matcher.js';
+import { getArcStats, mergeTerms, computeBuzzScore } from '../engine/arc/utils.js';
 
 const arcRoutes = new Hono<{ Variables: AuthVariables }>();
 
@@ -199,6 +200,14 @@ arcRoutes.post('/:id/merge', zValidator('json', mergeArcSchema), async (c) => {
     return c.json({ error: 'Arc not found' }, 404);
   }
 
+  if (sourceArc.mergedIntoId) {
+    return c.json({ error: 'Source arc has already been merged' }, 409);
+  }
+
+  if (targetArc.mergedIntoId) {
+    return c.json({ error: 'Target arc has already been merged into another arc' }, 409);
+  }
+
   const sourceItems = await db
     .select()
     .from(arcItems)
@@ -271,38 +280,6 @@ arcRoutes.post('/:id/merge', zValidator('json', mergeArcSchema), async (c) => {
     },
   });
 });
-
-async function getArcStats(arcId: string): Promise<{ itemCount: number; sourceCount: number }> {
-  const stats = await db
-    .select({
-      itemCount: count(arcItems.id),
-      sourceCount: sql<number>`count(distinct ${feedItems.sourceId})`,
-    })
-    .from(arcItems)
-    .innerJoin(feedItems, eq(arcItems.itemId, feedItems.id))
-    .where(eq(arcItems.arcId, arcId))
-    .get();
-
-  return {
-    itemCount: Number(stats?.itemCount ?? 0),
-    sourceCount: Number(stats?.sourceCount ?? 0),
-  };
-}
-
-function mergeTerms(values: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const normalized = value.trim();
-    if (!normalized) continue;
-    const key = /[a-zA-Z]/.test(normalized) ? normalized.toLowerCase() : normalized;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(normalized);
-  }
-  return result;
-}
-
 function mergeTimeline(
   a: { date: string; headline: string; itemId: string }[],
   b: { date: string; headline: string; itemId: string }[],
@@ -322,10 +299,6 @@ function maxDate(a: Date | null, b: Date | null): Date {
   const aTs = a ? new Date(a).getTime() : 0;
   const bTs = b ? new Date(b).getTime() : 0;
   return new Date(Math.max(aTs, bTs, Date.now()));
-}
-
-function computeBuzzScore(itemCount: number, sourceCount: number): number {
-  return Number((sourceCount * 0.9 + Math.log2(itemCount + 1)).toFixed(3));
 }
 
 export { arcRoutes };
