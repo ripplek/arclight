@@ -2,7 +2,9 @@
 // Story Arc Types
 // ═══════════════════════════════════════════
 
-export type ArcStatus = 'active' | 'dormant' | 'closed';
+export type ArcStatus = 'active' | 'stale' | 'archived';
+
+export type ArcTitleSource = 'rule' | 'llm' | 'user';
 
 export interface ArcTimelineEntry {
   date: string;
@@ -17,9 +19,17 @@ export interface StoryArc {
   summary?: string;
   tags: string[];
   entities: string[];
+  keywords: string[];
   status: ArcStatus;
   firstSeen: Date;
   lastUpdated: Date;
+  summaryUpdatedAt?: Date;
+  titleSource: ArcTitleSource;
+  mergedIntoId?: string;
   itemCount: number;
+  sourceCount: number;
+  buzzScore: number;
   timeline?: ArcTimelineEntry[];
+  createdAt: Date;
+  updatedAt: Date;
 }

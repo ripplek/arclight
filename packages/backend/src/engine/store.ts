@@ -1,10 +1,11 @@
 // packages/backend/src/engine/store.ts
 import { db } from '../db/client.js';
-import { feedItems, feedSources } from '../db/schema.js';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { feedItems, feedSources, userSources } from '../db/schema.js';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { NormalizedItem } from './normalizer.js';
 import type { FetchResult } from './fetch-manager.js';
 import { logger } from '../shared/logger.js';
+import { processItemForArc } from './arc/index.js';
 
 /**
  * 写入新的 feed items 到数据库。
@@ -53,8 +54,30 @@ export async function storeItems(items: NormalizedItem[]): Promise<{ inserted: n
     inserted += batch.length;
   }
 
+  await processInsertedItemsForArcs(newItems);
   logger.info({ inserted, skipped: items.length - newItems.length }, 'Items stored');
   return { inserted, skipped: items.length - newItems.length };
+}
+
+async function processInsertedItemsForArcs(items: NormalizedItem[]): Promise<void> {
+  for (const item of items) {
+    // Only process for users who subscribe to this item's source
+    const subscribers = await db
+      .selectDistinct({ userId: userSources.userId })
+      .from(userSources)
+      .where(and(eq(userSources.sourceId, item.sourceId), eq(userSources.enabled, true)));
+
+    for (const sub of subscribers) {
+      try {
+        await processItemForArc(item, sub.userId);
+      } catch (error) {
+        logger.warn(
+          { error, itemId: item.id, userId: sub.userId },
+          'Arc processing failed for item; continuing fetch pipeline',
+        );
+      }
+    }
+  }
 }
 
 /** Update source fetch status after a fetch attempt */
