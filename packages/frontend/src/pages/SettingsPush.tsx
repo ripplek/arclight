@@ -155,6 +155,8 @@ export default function SettingsPush() {
 
       setLogs(historyRes.data);
       setStats(statsRes.data);
+    } catch (err) {
+      setSaveMessage({ success: false, text: getApiErrorMessage(err, '加载配置失败，请刷新页面重试') });
     } finally {
       setLoading(false);
     }
@@ -218,8 +220,12 @@ export default function SettingsPush() {
       };
 
       await api.put('/api/v1/push/channels/telegram', payload);
+      try {
+        await reloadChannels();
+      } catch {
+        // reload is best-effort; save already succeeded
+      }
       setSaveMessage({ success: true, text: '配置已保存' });
-      await reloadChannels();
     } catch (err) {
       setSaveMessage({ success: false, text: getApiErrorMessage(err, '保存失败，请稍后重试') });
     } finally {
@@ -277,7 +283,11 @@ export default function SettingsPush() {
 
   async function handleHistoryChannelChange(value: string) {
     setHistoryChannel(value);
-    await refreshHistoryAndStats(value);
+    try {
+      await refreshHistoryAndStats(value);
+    } catch {
+      // history refresh failed silently; user can retry via the Refresh button
+    }
   }
 
   if (loading) return <div className="p-4">Loading...</div>;
@@ -435,7 +445,7 @@ export default function SettingsPush() {
             <Tabs value={historyChannel} onValueChange={handleHistoryChannelChange}>
               <TabsList>
                 <TabsTrigger value="all">全部</TabsTrigger>
-                {[...new Set(['telegram', ...availableChannels])].map((channel) => (
+                {availableChannels.map((channel) => (
                   <TabsTrigger key={channel} value={channel}>{channel}</TabsTrigger>
                 ))}
               </TabsList>
