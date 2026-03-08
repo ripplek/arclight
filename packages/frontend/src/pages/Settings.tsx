@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router';
 const settingsNav = [
   { label: 'Topics', path: '/settings/topics', icon: '🏷️' },
   { label: 'Schedule', path: '/settings/schedule', icon: '⏰' },
+  { label: 'Push Channels', path: '/settings/push', icon: '📤' },
 ];
 
 export default function Settings() {
