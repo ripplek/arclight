@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { rankItems, type RankedItem } from './ranking.js';
 import { renderDigest, type DigestTier } from './renderer.js';
 import { aiEnhanceItems, type EnhancedItem } from './ai-enhance.js';
+import { getItemArcMap } from './arc-context.js';
 import { dedup } from '../dedup.js';
 import type { NormalizedItem } from '../normalizer.js';
 import { logger } from '../../shared/logger.js';
@@ -118,10 +119,32 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     }
   }
 
+  // 5.5. Inject Arc context (getItemArcMap never throws — returns empty map on error)
+  const arcMap = await getItemArcMap(
+    enhancedItems.map((i) => i.id),
+    userId,
+  );
+
+  for (const item of enhancedItems) {
+    const arcInfo = arcMap.get(item.id);
+    if (arcInfo) {
+      item.arcInfo = {
+        id: arcInfo.arcId,
+        title: arcInfo.arcTitle,
+        status: arcInfo.arcStatus,
+        summary: arcInfo.arcSummary,
+      };
+    }
+  }
+
   // 6. Render
   const { markdown, html } = renderDigest(enhancedItems, tier, date);
 
   // 7. Store
+  const arcIds = [
+    ...new Set(enhancedItems.map((item) => item.arcInfo?.id).filter((id): id is string => Boolean(id))),
+  ];
+
   const digestId = nanoid();
   if (!dryRun) {
     await db.insert(digests).values({
@@ -132,6 +155,7 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
       contentMarkdown: markdown,
       contentHtml: html,
       itemIds: topItems.map((i) => i.id),
+      arcIds,
       metadata: {
         itemCount: topItems.length,
         generatedAt: new Date().toISOString(),
