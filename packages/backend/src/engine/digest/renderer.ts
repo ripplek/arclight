@@ -292,14 +292,15 @@ function renderArcMarkdown(
   }
 
   const title = arcInfo.title.trim();
+  const linkedTitle = arcInfo.id ? `[${title}](/arcs/${encodeURIComponent(arcInfo.id)})` : title;
   const summary = compactArcSummary(arcInfo.summary);
   const detail = summary ? ` · ${summary}` : '';
 
   if (options.deep) {
-    return `> 🧵 **故事线**：${title}${detail}`;
+    return `> 🧵 **故事线**：${linkedTitle}${detail}`;
   }
 
-  return `🧵 故事线：**${title}**${detail}`;
+  return `🧵 故事线：${linkedTitle}${detail}`;
 }
 
 function renderArcHtml(
@@ -311,14 +312,17 @@ function renderArcHtml(
   }
 
   const title = escapeHtml(arcInfo.title.trim());
+  const linkedTitle = arcInfo.id
+    ? `<a href="/arcs/${encodeURIComponent(arcInfo.id)}" target="_self">${title}</a>`
+    : title;
   const summary = compactArcSummary(arcInfo.summary);
   const detail = summary ? ` <span style="color:#6b7280">· ${escapeHtml(summary)}</span>` : '';
 
   if (options.deep) {
-    return `<blockquote style="border-left:3px solid #8b5cf6;padding-left:1em;color:#5b21b6">🧵 <strong>故事线</strong>：${title}${detail}</blockquote>`;
+    return `<blockquote style="border-left:3px solid #8b5cf6;padding-left:1em;color:#5b21b6">🧵 <strong>故事线</strong>：${linkedTitle}${detail}</blockquote>`;
   }
 
-  return `<div style="margin:0.35em 0 0.45em;color:#5b21b6;font-size:0.9em">🧵 <strong>故事线：</strong>${title}${detail}</div>`;
+  return `<div style="margin:0.35em 0 0.45em;color:#5b21b6;font-size:0.9em">🧵 <strong>故事线：</strong>${linkedTitle}${detail}</div>`;
 }
 
 function compactArcSummary(summary: string | null | undefined): string {
