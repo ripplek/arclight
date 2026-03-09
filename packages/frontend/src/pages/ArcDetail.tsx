@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import type { ArcStatus, StoryArc } from '@arclight/shared';
+import type { ArcStatus, ArcTitleSource, StoryArc } from '@arclight/shared';
 import { api, ApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -117,6 +117,21 @@ function formatBuzzScore(score: number): string {
   if (!Number.isFinite(normalized)) return '0';
   return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(1);
 }
+
+const TITLE_SOURCE_META: Record<ArcTitleSource, { label: string; className: string }> = {
+  llm: {
+    label: 'AI 生成',
+    className: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+  },
+  rule: {
+    label: '规则生成',
+    className: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+  },
+  user: {
+    label: '手动编辑',
+    className: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300',
+  },
+};
 
 export default function ArcDetail() {
   const { id } = useParams();
@@ -266,7 +281,17 @@ export default function ArcDetail() {
               className="w-full text-left"
               aria-label="编辑故事线标题"
             >
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{arc.title}</h1>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{arc.title}</h1>
+                {arc.titleSource && TITLE_SOURCE_META[arc.titleSource] && (
+                  <Badge
+                    variant="secondary"
+                    className={`shrink-0 text-xs ${TITLE_SOURCE_META[arc.titleSource].className}`}
+                  >
+                    {TITLE_SOURCE_META[arc.titleSource].label}
+                  </Badge>
+                )}
+              </div>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">点击标题可编辑</p>
             </button>
           )}
@@ -288,12 +313,19 @@ export default function ArcDetail() {
       </div>
 
       {arc.summary && (
-        <Card className="gap-3 py-5">
+        <Card className="gap-3 py-5 border-violet-200/60 dark:border-violet-500/20">
           <CardHeader className="pb-0">
-            <CardTitle className="text-base">摘要</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">摘要</CardTitle>
+              {arc.summaryUpdatedAt && (
+                <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                  更新于 {formatDateTime(arc.summaryUpdatedAt)}
+                </span>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap text-sm leading-6 text-neutral-700 dark:text-neutral-300">{arc.summary}</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">{arc.summary}</p>
           </CardContent>
         </Card>
       )}

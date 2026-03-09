@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { ArcStatus, StoryArc } from '@arclight/shared';
+import type { ArcStatus, ArcTitleSource, ArcTimelineEntry, StoryArc } from '@arclight/shared';
 import { api, ApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,6 +121,35 @@ function formatBuzzScore(score: number): string {
   return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(1);
 }
 
+const TITLE_SOURCE_META: Record<ArcTitleSource, { label: string; className: string }> = {
+  llm: {
+    label: 'AI',
+    className: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+  },
+  rule: {
+    label: '规则',
+    className: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+  },
+  user: {
+    label: '手动',
+    className: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300',
+  },
+};
+
+function truncateSummary(text: string, max = 80): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max) + '…';
+}
+
+function getRecentHeadlines(timeline: ArcTimelineEntry[] | undefined | null, max = 3): string[] {
+  if (!timeline || timeline.length === 0) return [];
+  return [...timeline]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, max)
+    .map((entry) => entry.headline)
+    .filter(Boolean);
+}
+
 export default function Arcs() {
   const [status, setStatus] = useState<ArcFilterStatus>('active');
   const [arcs, setArcs] = useState<ArcRecord[]>([]);
@@ -214,9 +243,19 @@ export default function Arcs() {
                 <Card className="h-full gap-4 py-5 transition-colors group-hover:bg-neutral-50 dark:group-hover:bg-neutral-900/60">
                   <CardHeader className="pb-0">
                     <div className="flex items-start justify-between gap-3">
-                      <CardTitle className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                        {arc.title}
-                      </CardTitle>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CardTitle className="text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                          {arc.title}
+                        </CardTitle>
+                        {arc.titleSource && (
+                          <Badge
+                            variant="secondary"
+                            className={`shrink-0 text-[10px] px-1.5 py-0 leading-4 ${TITLE_SOURCE_META[arc.titleSource]?.className ?? ''}`}
+                          >
+                            {TITLE_SOURCE_META[arc.titleSource]?.label ?? arc.titleSource}
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Badge className={statusMeta.className}>{statusMeta.label}</Badge>
                         {arc.buzzScore > 0 && (
@@ -244,6 +283,25 @@ export default function Arcs() {
                   </CardHeader>
 
                   <CardContent className="space-y-2">
+                    {arc.summary ? (
+                      <p className="text-sm leading-5 text-neutral-600 dark:text-neutral-400 line-clamp-2">
+                        {truncateSummary(arc.summary)}
+                      </p>
+                    ) : (
+                      (() => {
+                        const headlines = getRecentHeadlines(arc.timeline);
+                        return headlines.length > 0 ? (
+                          <ul className="space-y-0.5">
+                            {headlines.map((hl, i) => (
+                              <li key={i} className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                <span className="text-neutral-400 dark:text-neutral-500 mr-1">·</span>
+                                {hl}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null;
+                      })()
+                    )}
                     <p className="text-sm text-neutral-700 dark:text-neutral-300">
                       {arc.itemCount} items · {arc.sourceCount} sources
                     </p>
