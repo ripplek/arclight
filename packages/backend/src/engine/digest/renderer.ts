@@ -1,6 +1,7 @@
 // packages/backend/src/engine/digest/renderer.ts
 import type { RankedItem } from './ranking.js';
 import type { EnhancedItem } from './ai-enhance.js';
+import type { BuzzHighlight } from './buzz-highlights.js';
 
 export type DigestTier = 'flash' | 'daily' | 'deep' | 'weekly' | 'buzz' | 'alert';
 
@@ -9,7 +10,16 @@ export interface RenderOutput {
   html: string;
 }
 
-export function renderDigest(items: EnhancedItem[], tier: DigestTier, date: string): RenderOutput {
+export interface RenderDigestOptions {
+  buzzHighlights?: BuzzHighlight[];
+}
+
+export function renderDigest(
+  items: EnhancedItem[],
+  tier: DigestTier,
+  date: string,
+  options: RenderDigestOptions = {},
+): RenderOutput {
   // If items have AI enhancement, use enhanced renderers
   const hasEnhanced = items.some((i) => i.enhanced);
 
@@ -17,11 +27,17 @@ export function renderDigest(items: EnhancedItem[], tier: DigestTier, date: stri
     case 'flash':
       return renderFlash(items, date);
     case 'daily':
-      return hasEnhanced ? renderDailyEnhanced(items, date) : renderDaily(items, date);
+      return hasEnhanced
+        ? renderDailyEnhanced(items, date, options)
+        : renderDaily(items, date, options);
     case 'deep':
-      return hasEnhanced ? renderDeepEnhanced(items, date) : renderDeep(items, date);
+      return hasEnhanced
+        ? renderDeepEnhanced(items, date, options)
+        : renderDeep(items, date, options);
     default:
-      return hasEnhanced ? renderDailyEnhanced(items, date) : renderDaily(items, date);
+      return hasEnhanced
+        ? renderDailyEnhanced(items, date, options)
+        : renderDaily(items, date, options);
   }
 }
 
@@ -47,7 +63,11 @@ function renderFlash(items: EnhancedItem[], date: string): RenderOutput {
 
 // ── Daily Enhanced: grouped by category ──
 
-function renderDailyEnhanced(items: EnhancedItem[], date: string): RenderOutput {
+function renderDailyEnhanced(
+  items: EnhancedItem[],
+  date: string,
+  options: RenderDigestOptions = {},
+): RenderOutput {
   // Group items by category
   const groups = groupByCategory(items);
   const mdSections: string[] = [];
@@ -123,16 +143,22 @@ function renderDailyEnhanced(items: EnhancedItem[], date: string): RenderOutput 
     }
   }
 
+  const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights);
+  const buzzHtml = renderBuzzHtml(options.buzzHighlights);
   const itemCountInfo = `_共 ${items.length} 条精选，来自 ${countSources(items)} 个信源_\n`;
-  const markdown = `# 📰 今日精选 — ${date}\n${itemCountInfo}\n${mdSections.join('\n')}\n`;
-  const html = `<h1>📰 今日精选 — ${date}</h1>\n<p style="color:#888">${escapeHtml(itemCountInfo)}</p>\n${htmlSections.join('\n')}`;
+  const markdown = `# 📰 今日精选 — ${date}\n${itemCountInfo}\n${mdSections.join('\n')}${buzzMarkdown ? `\n${buzzMarkdown}` : ''}\n`;
+  const html = `<h1>📰 今日精选 — ${date}</h1>\n<p style="color:#888">${escapeHtml(itemCountInfo)}</p>\n${htmlSections.join('\n')}${buzzHtml ? `\n${buzzHtml}` : ''}`;
 
   return { markdown, html };
 }
 
 // ── Deep Enhanced ──
 
-function renderDeepEnhanced(items: EnhancedItem[], date: string): RenderOutput {
+function renderDeepEnhanced(
+  items: EnhancedItem[],
+  date: string,
+  options: RenderDigestOptions = {},
+): RenderOutput {
   const groups = groupByCategory(items);
   const mdSections: string[] = [];
   const htmlSections: string[] = [];
@@ -185,15 +211,21 @@ function renderDeepEnhanced(items: EnhancedItem[], date: string): RenderOutput {
     }
   }
 
-  const markdown = `# 🔍 深度推荐 — ${date}\n\n${mdSections.join('\n---\n\n')}\n`;
-  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}`;
+  const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights, { deep: true });
+  const buzzHtml = renderBuzzHtml(options.buzzHighlights, { deep: true });
+  const markdown = `# 🔍 深度推荐 — ${date}\n\n${mdSections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}\n`;
+  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}${buzzHtml ? `\n<hr/>\n${buzzHtml}` : ''}`;
 
   return { markdown, html };
 }
 
 // ── Fallback renderers (no AI enhancement) ──
 
-function renderDaily(items: EnhancedItem[], date: string): RenderOutput {
+function renderDaily(
+  items: EnhancedItem[],
+  date: string,
+  options: RenderDigestOptions = {},
+): RenderOutput {
   const sections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
     let md = `### ${i + 1}. ${badge} ${item.title}\n`;
@@ -211,7 +243,8 @@ function renderDaily(items: EnhancedItem[], date: string): RenderOutput {
     return md;
   });
 
-  const markdown = `# 📰 今日精选 — ${date}\n\n${sections.join('\n---\n\n')}\n`;
+  const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights);
+  const markdown = `# 📰 今日精选 — ${date}\n\n${sections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}\n`;
 
   const htmlSections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
@@ -232,11 +265,16 @@ function renderDaily(items: EnhancedItem[], date: string): RenderOutput {
     return section;
   });
 
-  const html = `<h1>📰 今日精选 — ${date}</h1>\n${htmlSections.join('\n')}`;
+  const buzzHtml = renderBuzzHtml(options.buzzHighlights);
+  const html = `<h1>📰 今日精选 — ${date}</h1>\n${htmlSections.join('\n')}${buzzHtml ? `\n${buzzHtml}` : ''}`;
   return { markdown, html };
 }
 
-function renderDeep(items: EnhancedItem[], date: string): RenderOutput {
+function renderDeep(
+  items: EnhancedItem[],
+  date: string,
+  options: RenderDigestOptions = {},
+): RenderOutput {
   const sections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
     let md = `## ${i + 1}. ${badge} ${item.title}\n\n`;
@@ -255,7 +293,8 @@ function renderDeep(items: EnhancedItem[], date: string): RenderOutput {
     return md;
   });
 
-  const markdown = `# 🔍 深度推荐 — ${date}\n\n${sections.join('\n---\n\n')}\n`;
+  const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights, { deep: true });
+  const markdown = `# 🔍 深度推荐 — ${date}\n\n${sections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}\n`;
 
   const htmlSections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
@@ -277,7 +316,8 @@ function renderDeep(items: EnhancedItem[], date: string): RenderOutput {
     return section;
   });
 
-  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}`;
+  const buzzHtml = renderBuzzHtml(options.buzzHighlights, { deep: true });
+  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}${buzzHtml ? `\n<hr/>\n${buzzHtml}` : ''}`;
   return { markdown, html };
 }
 
@@ -352,6 +392,128 @@ function groupByCategory(items: EnhancedItem[]): CategoryGroup[] {
   return Array.from(map.entries())
     .sort((a, b) => b[1].items.length - a[1].items.length || a[0].localeCompare(b[0]))
     .map(([category, { emoji, items }]) => ({ category, emoji, items }));
+}
+
+
+function renderBuzzMarkdown(
+  highlights: BuzzHighlight[] | undefined,
+  options: { deep?: boolean } = {},
+): string {
+  if (!highlights?.length) {
+    return '';
+  }
+
+  const lines = highlights.map((highlight, index) => {
+    const title = `[${highlight.title}](/arcs/${encodeURIComponent(highlight.arcId)})`;
+    const meta = formatBuzzMeta(highlight);
+    const summary = formatBuzzSummary(highlight);
+
+    if (options.deep) {
+      const parts = [`### ${index + 1}. 🔥 ${title}`];
+      if (summary) {
+        parts.push(summary);
+      }
+      if (meta) {
+        parts.push(`> ${meta}`);
+      }
+      return parts.join('\n\n');
+    }
+
+    const compact = [`${index + 1}. **${title}**`];
+    if (summary) {
+      compact.push(`   ${summary}`);
+    }
+    if (meta) {
+      compact.push(`   _${meta}_`);
+    }
+    return compact.join('\n');
+  });
+
+  return `## 🔥 热点事件\n\n${lines.join('\n\n')}`;
+}
+
+function renderBuzzHtml(
+  highlights: BuzzHighlight[] | undefined,
+  options: { deep?: boolean } = {},
+): string {
+  if (!highlights?.length) {
+    return '';
+  }
+
+  const sections = highlights.map((highlight, index) => {
+    const title = `<a href="/arcs/${encodeURIComponent(highlight.arcId)}" target="_self">${escapeHtml(highlight.title)}</a>`;
+    const summary = formatBuzzSummary(highlight);
+    const meta = formatBuzzMeta(highlight);
+    const headingTag = options.deep ? 'h3' : 'div';
+    const headingStyle = options.deep
+      ? 'font-size:1.05em;margin:0 0 0.45em 0'
+      : 'font-weight:600;font-size:1.02em;margin-bottom:0.35em';
+
+    let html = `<div class="digest-buzz-item" style="margin-bottom:${options.deep ? '1.4em' : '1em'};padding:${options.deep ? '0.9em 1em' : '0.75em 0.9em'};background:#fff7ed;border-left:3px solid #f97316;border-radius:8px">`;
+    html += `<${headingTag} style="${headingStyle}">${index + 1}. 🔥 ${title}</${headingTag}>`;
+    if (summary) {
+      html += `<div style="color:#7c2d12;line-height:1.6">${escapeHtml(summary)}</div>`;
+    }
+    if (meta) {
+      html += `<div style="margin-top:0.35em;color:#9a3412;font-size:0.85em">${escapeHtml(meta)}</div>`;
+    }
+    html += `</div>`;
+    return html;
+  });
+
+  return `<h2>🔥 热点事件</h2>\n${sections.join('\n')}`;
+}
+
+function formatBuzzSummary(highlight: BuzzHighlight): string {
+  if (highlight.summary?.trim()) {
+    return truncate(highlight.summary.trim(), 72);
+  }
+
+  if (highlight.itemCount > 0 || highlight.sourceCount > 0) {
+    const parts: string[] = [];
+    if (highlight.itemCount > 0) {
+      parts.push(`${highlight.itemCount} 条线索`);
+    }
+    if (highlight.sourceCount > 0) {
+      parts.push(`${highlight.sourceCount} 个信源`);
+    }
+    if (parts.length > 0) {
+      return `近 24 小时持续活跃，已聚合 ${parts.join(' / ')}`;
+    }
+  }
+
+  return '';
+}
+
+function formatBuzzMeta(highlight: BuzzHighlight): string {
+  const parts: string[] = [];
+
+  if (highlight.buzzScore > 0) {
+    parts.push(`Buzz ${highlight.buzzScore.toFixed(1)}`);
+  }
+
+  if (highlight.lastUpdated) {
+    const formatted = formatBuzzTimestamp(highlight.lastUpdated);
+    if (formatted) {
+      parts.push(`更新于 ${formatted}`);
+    }
+  }
+
+  return parts.join(' · ');
+}
+
+function formatBuzzTimestamp(value: Date): string {
+  if (Number.isNaN(value.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(value);
 }
 
 function countSources(items: EnhancedItem[]): number {
