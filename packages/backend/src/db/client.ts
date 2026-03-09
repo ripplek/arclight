@@ -14,3 +14,7 @@ sqlite.pragma('busy_timeout = 5000');
 sqlite.pragma('foreign_keys = ON');
 
 export const db = drizzle(sqlite, { schema });
+
+export function sqliteAll<T>(query: string, ...params: unknown[]): T[] {
+  return sqlite.prepare(query).all(...params) as T[];
+}
