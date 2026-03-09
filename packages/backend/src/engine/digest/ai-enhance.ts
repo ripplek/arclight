@@ -17,6 +17,12 @@ export interface EnhancedMeta {
 
 export interface EnhancedItem extends RankedItem {
   enhanced?: EnhancedMeta;
+  arcInfo?: {
+    id: string;
+    title: string;
+    status: string;
+    summary: string | null;
+  };
 }
 
 const enhanceResultSchema = z.array(
