@@ -2,6 +2,7 @@
 import type { RankedItem } from './ranking.js';
 import type { EnhancedItem } from './ai-enhance.js';
 import type { BuzzHighlight } from './buzz-highlights.js';
+import type { SerendipityItem } from './serendipity.js';
 
 export type DigestTier = 'flash' | 'daily' | 'deep' | 'weekly' | 'buzz' | 'alert';
 
@@ -12,6 +13,7 @@ export interface RenderOutput {
 
 export interface RenderDigestOptions {
   buzzHighlights?: BuzzHighlight[];
+  serendipity?: SerendipityItem | null;
 }
 
 export function renderDigest(
@@ -145,9 +147,11 @@ function renderDailyEnhanced(
 
   const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights);
   const buzzHtml = renderBuzzHtml(options.buzzHighlights);
+  const serendipityMd = renderSerendipityMarkdown(options.serendipity);
+  const serendipityHtml = renderSerendipityHtml(options.serendipity);
   const itemCountInfo = `_共 ${items.length} 条精选，来自 ${countSources(items)} 个信源_\n`;
-  const markdown = `# 📰 今日精选 — ${date}\n${itemCountInfo}\n${mdSections.join('\n')}${buzzMarkdown ? `\n${buzzMarkdown}` : ''}\n`;
-  const html = `<h1>📰 今日精选 — ${date}</h1>\n<p style="color:#888">${escapeHtml(itemCountInfo)}</p>\n${htmlSections.join('\n')}${buzzHtml ? `\n${buzzHtml}` : ''}`;
+  const markdown = `# 📰 今日精选 — ${date}\n${itemCountInfo}\n${mdSections.join('\n')}${buzzMarkdown ? `\n${buzzMarkdown}` : ''}${serendipityMd ? `\n${serendipityMd}` : ''}\n`;
+  const html = `<h1>📰 今日精选 — ${date}</h1>\n<p style="color:#888">${escapeHtml(itemCountInfo)}</p>\n${htmlSections.join('\n')}${buzzHtml ? `\n${buzzHtml}` : ''}${serendipityHtml ? `\n${serendipityHtml}` : ''}`;
 
   return { markdown, html };
 }
@@ -213,8 +217,10 @@ function renderDeepEnhanced(
 
   const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights, { deep: true });
   const buzzHtml = renderBuzzHtml(options.buzzHighlights, { deep: true });
-  const markdown = `# 🔍 深度推荐 — ${date}\n\n${mdSections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}\n`;
-  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}${buzzHtml ? `\n<hr/>\n${buzzHtml}` : ''}`;
+  const serendipityMd = renderSerendipityMarkdown(options.serendipity);
+  const serendipityHtml = renderSerendipityHtml(options.serendipity);
+  const markdown = `# 🔍 深度推荐 — ${date}\n\n${mdSections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}${serendipityMd ? `\n---\n\n${serendipityMd}` : ''}\n`;
+  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}${buzzHtml ? `\n<hr/>\n${buzzHtml}` : ''}${serendipityHtml ? `\n<hr/>\n${serendipityHtml}` : ''}`;
 
   return { markdown, html };
 }
@@ -244,7 +250,8 @@ function renderDaily(
   });
 
   const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights);
-  const markdown = `# 📰 今日精选 — ${date}\n\n${sections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}\n`;
+  const serendipityMdFb = renderSerendipityMarkdown(options.serendipity);
+  const markdown = `# 📰 今日精选 — ${date}\n\n${sections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}${serendipityMdFb ? `\n---\n\n${serendipityMdFb}` : ''}\n`;
 
   const htmlSections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
@@ -266,7 +273,8 @@ function renderDaily(
   });
 
   const buzzHtml = renderBuzzHtml(options.buzzHighlights);
-  const html = `<h1>📰 今日精选 — ${date}</h1>\n${htmlSections.join('\n')}${buzzHtml ? `\n${buzzHtml}` : ''}`;
+  const serendipityHtmlFb = renderSerendipityHtml(options.serendipity);
+  const html = `<h1>📰 今日精选 — ${date}</h1>\n${htmlSections.join('\n')}${buzzHtml ? `\n${buzzHtml}` : ''}${serendipityHtmlFb ? `\n${serendipityHtmlFb}` : ''}`;
   return { markdown, html };
 }
 
@@ -294,7 +302,8 @@ function renderDeep(
   });
 
   const buzzMarkdown = renderBuzzMarkdown(options.buzzHighlights, { deep: true });
-  const markdown = `# 🔍 深度推荐 — ${date}\n\n${sections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}\n`;
+  const serendipityMdFbDeep = renderSerendipityMarkdown(options.serendipity);
+  const markdown = `# 🔍 深度推荐 — ${date}\n\n${sections.join('\n---\n\n')}${buzzMarkdown ? `\n---\n\n${buzzMarkdown}` : ''}${serendipityMdFbDeep ? `\n---\n\n${serendipityMdFbDeep}` : ''}\n`;
 
   const htmlSections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
@@ -317,8 +326,52 @@ function renderDeep(
   });
 
   const buzzHtml = renderBuzzHtml(options.buzzHighlights, { deep: true });
-  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}${buzzHtml ? `\n<hr/>\n${buzzHtml}` : ''}`;
+  const serendipityHtmlFbDeep = renderSerendipityHtml(options.serendipity);
+  const html = `<h1>🔍 深度推荐 — ${date}</h1>\n${htmlSections.join('\n<hr/>\n')}${buzzHtml ? `\n<hr/>\n${buzzHtml}` : ''}${serendipityHtmlFbDeep ? `\n<hr/>\n${serendipityHtmlFbDeep}` : ''}`;
   return { markdown, html };
+}
+
+// ── Serendipity ──
+
+function renderSerendipityMarkdown(
+  serendipity: SerendipityItem | null | undefined,
+): string {
+  if (!serendipity) {
+    return '';
+  }
+
+  const { item, reason } = serendipity;
+  const title = item.title || '未知标题';
+
+  const lines = [
+    `## 🎲 意外发现`,
+    '',
+    `**${title}**`,
+    `_${reason}_`,
+    `🔗 [阅读原文](${item.url})`,
+  ];
+
+  return lines.join('\n');
+}
+
+function renderSerendipityHtml(
+  serendipity: SerendipityItem | null | undefined,
+): string {
+  if (!serendipity) {
+    return '';
+  }
+
+  const { item, reason } = serendipity;
+  const title = item.title || '未知标题';
+
+  let html = `<h2>🎲 意外发现</h2>`;
+  html += `<div style="margin-bottom:1em;padding:0.8em 1em;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:8px">`;
+  html += `<div style="font-weight:600;font-size:1.02em">${escapeHtml(title)}</div>`;
+  html += `<div style="color:#15803d;font-size:0.9em;margin:0.3em 0"><i>${escapeHtml(reason)}</i></div>`;
+  html += `<div style="margin-top:0.3em;font-size:0.85em"><a href="${escapeHtml(item.url)}" target="_blank">🔗 阅读原文</a></div>`;
+  html += `</div>`;
+
+  return html;
 }
 
 // ── Helpers ──

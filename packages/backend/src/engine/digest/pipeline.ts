@@ -8,6 +8,7 @@ import { renderDigest, type DigestTier } from './renderer.js';
 import { aiEnhanceItems, type EnhancedItem } from './ai-enhance.js';
 import { getItemArcMap } from './arc-context.js';
 import { getBuzzHighlights } from './buzz-highlights.js';
+import { pickSerendipityItem } from './serendipity.js';
 import { dedup } from '../dedup.js';
 import type { NormalizedItem } from '../normalizer.js';
 import { logger } from '../../shared/logger.js';
@@ -143,8 +144,14 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     ? await getBuzzHighlights(userId, { limit: 3, withinHours: 24 })
     : [];
 
+  // 5.8. Serendipity slot for Daily/Deep digests
+  const digestItemIds = new Set(topItems.map((i) => i.id));
+  const serendipity = tier === 'daily' || tier === 'deep'
+    ? pickSerendipityItem(rankedItems, digestItemIds)
+    : null;
+
   // 6. Render
-  const { markdown, html } = renderDigest(enhancedItems, tier, date, { buzzHighlights });
+  const { markdown, html } = renderDigest(enhancedItems, tier, date, { buzzHighlights, serendipity });
 
   // 7. Store
   const arcIds = [
