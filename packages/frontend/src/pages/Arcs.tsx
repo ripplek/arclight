@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import BuzzBanner from '@/components/BuzzBanner';
 
 type ArcFilterStatus = 'active' | 'stale' | 'all';
 
@@ -159,6 +160,8 @@ export default function Arcs() {
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">故事线</h1>
         <p className="mt-2 text-neutral-600 dark:text-neutral-400">追踪话题演进与关键节点</p>
       </div>
+
+      <BuzzBanner />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={status} onValueChange={(value) => setStatus(toArcFilterStatus(value))}>
