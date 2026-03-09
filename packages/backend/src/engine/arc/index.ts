@@ -5,6 +5,7 @@ import { arcItems, storyArcs } from '../../db/schema.js';
 import { logger } from '../../shared/logger.js';
 import { getCandidatePool } from './candidate-pool.js';
 import { extractEntities } from './entity-extractor.js';
+import { getArcLLMQueue } from './llm-queue.js';
 import { findBestMatch, getArcSnapshotCache } from './matcher.js';
 import { getArcStats, mergeTerms, computeBuzzScore } from './utils.js';
 import type { ArcProcessItem, CandidateGroup } from './types.js';
@@ -186,6 +187,11 @@ async function createArcFromCandidateGroup(userId: string, group: CandidateGroup
     lastItemAt: lastSeenAt,
   });
 
+  getArcLLMQueue().enqueue({
+    type: 'title_generate',
+    arcId,
+  });
+
   logger.info({ userId, arcId, itemCount, sourceCount, title }, 'New story arc created from candidate pool');
 }
 
@@ -217,5 +223,4 @@ function resolveOccurredAt(item: ArcProcessItem): number {
 function dateKey(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
-
 
