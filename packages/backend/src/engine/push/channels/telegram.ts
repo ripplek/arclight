@@ -183,11 +183,17 @@ export class TelegramChannel implements PushChannel {
 
       for (const item of section.items) {
         msg += `\n• <b>${escapeHtml(item.title)}</b>`;
+
+        const arcLine = this.renderArcLine(item, payload.webUrl, '  ');
+        if (arcLine) {
+          msg += `\n${arcLine}`;
+        }
         if (item.summary) {
           msg += `\n  ${escapeHtml(item.summary)}`;
         }
         if (item.link) {
-          msg += `\n  <a href="${escapeHtml(item.link)}">🔗 原文</a>`;
+          const resolvedLink = this.resolveUrl(item.link, payload.webUrl) ?? item.link;
+          msg += `\n  <a href="${escapeHtml(resolvedLink)}">🔗 原文</a>`;
         }
         msg += '\n';
       }
@@ -211,6 +217,11 @@ export class TelegramChannel implements PushChannel {
 
       for (const item of section.items) {
         msg += `\n<b>${escapeHtml(item.title)}</b>\n`;
+
+        const arcLine = this.renderArcLine(item, payload.webUrl);
+        if (arcLine) {
+          msg += `${arcLine}\n`;
+        }
         if (item.summary) {
           msg += `${escapeHtml(item.summary)}\n`;
         }
@@ -221,7 +232,8 @@ export class TelegramChannel implements PushChannel {
           msg += `💡 ${escapeHtml(item.whyImportant)}\n`;
         }
         if (item.link) {
-          msg += `<a href="${escapeHtml(item.link)}">🔗 阅读原文</a>\n`;
+          const resolvedLink = this.resolveUrl(item.link, payload.webUrl) ?? item.link;
+          msg += `<a href="${escapeHtml(resolvedLink)}">🔗 阅读原文</a>\n`;
         }
         msg += '───\n';
       }
@@ -234,59 +246,154 @@ export class TelegramChannel implements PushChannel {
   }
 
   private parseMarkdownSections(markdown: string): ParsedSection[] {
-    const sections: ParsedSection[] = [];
-    let currentSection: ParsedSection | null = null;
+    const sections: ParsedSection[] = [{ heading: '', items: [] }];
+    let currentSection = sections[0];
     let currentItem: ParsedItem | null = null;
 
-    for (const line of markdown.split('\n')) {
+    for (const rawLine of markdown.split('\n')) {
+      const line = rawLine.trim();
+      if (!line || line === '---') {
+        continue;
+      }
+
+      const titleMatch = line.match(/^(?:\*\*(\d+\.\s*.+)\*\*|#{2,3}\s*(\d+\.\s*.+))$/);
+      if (titleMatch) {
+        if (currentItem) currentSection.items.push(currentItem);
+        currentItem = { title: this.stripInlineMarkdown(titleMatch[1] ?? titleMatch[2] ?? '') };
+        continue;
+      }
+
       const h2Match = line.match(/^##\s+(.+)/);
       if (h2Match) {
-        if (currentItem && currentSection) currentSection.items.push(currentItem);
+        if (currentItem) currentSection.items.push(currentItem);
         currentItem = null;
         currentSection = { heading: h2Match[1].trim(), items: [] };
         sections.push(currentSection);
         continue;
       }
 
-      const titleMatch = line.match(/^(?:\*\*|\#{3}\s*)(\d+\.\s*.+?)(?:\*\*)?$/);
-      if (titleMatch && currentSection) {
-        if (currentItem) currentSection.items.push(currentItem);
-        currentItem = { title: titleMatch[1].trim() };
+      if (!currentItem) {
         continue;
       }
 
-      const linkMatch = line.match(/🔗\s*\[.*?\]\((https?:\/\/[^\)]+)\)/);
-      if (linkMatch && currentItem) {
-        currentItem.link = linkMatch[1];
+      const linkMatch = line.match(/🔗\s*\[.*?\]\(([^\)]+)\)/);
+      if (linkMatch) {
+        currentItem.link = linkMatch[1].trim();
         continue;
       }
 
-      const contextMatch = line.match(/📎\s*(?:_)?(.+?)(?:_)?$/);
-      if (contextMatch && currentItem) {
-        currentItem.context = contextMatch[1].trim();
+      const arc = this.parseArcLine(line);
+      if (arc) {
+        currentItem.arc = arc;
         continue;
       }
 
-      const whyMatch = line.match(/💡\s*(.+)/);
-      if (whyMatch && currentItem) {
-        currentItem.whyImportant = whyMatch[1].trim();
+      const normalizedLine = this.stripQuotePrefix(line);
+      const contextMatch = normalizedLine.match(/^📎\s*(.+)$/);
+      if (contextMatch) {
+        currentItem.context = this.cleanLabelledText(contextMatch[1], '背景');
         continue;
       }
 
-      if (currentItem && line.trim() && !line.startsWith('#') && !line.startsWith('_')) {
-        if (!currentItem.summary) {
-          currentItem.summary = line.trim();
-        }
+      const whyMatch = normalizedLine.match(/^💡\s*(.+)$/);
+      if (whyMatch) {
+        currentItem.whyImportant = this.cleanLabelledText(whyMatch[1], '为什么重要');
+        continue;
+      }
+
+      if (normalizedLine.startsWith('🏷️')) {
+        continue;
+      }
+
+      if (!normalizedLine.startsWith('#') && !normalizedLine.startsWith('_') && !currentItem.summary) {
+        currentItem.summary = this.stripInlineMarkdown(normalizedLine);
       }
     }
 
-    if (currentItem && currentSection) currentSection.items.push(currentItem);
+    if (currentItem) currentSection.items.push(currentItem);
 
-    if (sections.length === 0) {
-      sections.push({ heading: '', items: [] });
+    return sections.filter((section, index) => section.heading || section.items.length > 0 || index === 0);
+  }
+
+  private parseArcLine(line: string): ParsedArc | null {
+    const normalizedLine = this.stripQuotePrefix(line);
+    if (!normalizedLine.startsWith('🧵')) {
+      return null;
     }
 
-    return sections;
+    let content = normalizedLine.replace(/^🧵\s*/, '');
+    content = content.replace(/^\*\*故事线\*\*：/, '');
+    content = content.replace(/^故事线：/, '');
+
+    const { text, link } = this.extractFirstMarkdownLink(content);
+    const [titlePart, ...rest] = text.split(/\s+·\s+/);
+    const title = this.stripInlineMarkdown(titlePart);
+
+    if (!title) {
+      return null;
+    }
+
+    return {
+      title,
+      link,
+      summary: rest.length > 0 ? this.stripInlineMarkdown(rest.join(' · ')) : undefined,
+    };
+  }
+
+  private renderArcLine(item: ParsedItem, baseUrl?: string, indent = ''): string {
+    if (!item.arc?.title) {
+      return '';
+    }
+
+    const resolvedArcLink = item.arc.link ? this.resolveUrl(item.arc.link, baseUrl) : undefined;
+    const arcTitle = resolvedArcLink
+      ? `<a href="${escapeHtml(resolvedArcLink)}">${escapeHtml(item.arc.title)}</a>`
+      : escapeHtml(item.arc.title);
+    const detail = item.arc.summary ? ` · ${escapeHtml(item.arc.summary)}` : '';
+
+    return `${indent}📖 ${arcTitle}${detail}`;
+  }
+
+  private cleanLabelledText(text: string, label: string): string {
+    const cleaned = this.stripInlineMarkdown(text);
+    return cleaned.replace(new RegExp(`^${label}：\\s*`), '').trim();
+  }
+
+  private stripQuotePrefix(text: string): string {
+    return text.replace(/^>\s*/, '').trim();
+  }
+
+  private stripInlineMarkdown(text: string): string {
+    return text
+      .replace(/\[(.*?)\]\(([^\)]+)\)/g, '$1')
+      .replace(/[*_`~]/g, '')
+      .trim();
+  }
+
+  private extractFirstMarkdownLink(text: string): { text: string; link?: string } {
+    const linkMatch = text.match(/^\[(.*?)\]\(([^\)]+)\)(.*)$/);
+    if (linkMatch) {
+      return {
+        text: `${linkMatch[1]}${linkMatch[3]}`.trim(),
+        link: linkMatch[2].trim(),
+      };
+    }
+
+    return { text };
+  }
+
+  private resolveUrl(url: string, baseUrl?: string): string | undefined {
+    try {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return new URL(url).toString();
+      }
+      if (!baseUrl) {
+        return undefined;
+      }
+      return new URL(url, new URL(baseUrl).origin).toString();
+    } catch {
+      return undefined;
+    }
   }
 
   private splitMessage(text: string, maxLen: number): string[] {
@@ -354,6 +461,13 @@ interface ParsedItem {
   summary?: string;
   context?: string;
   whyImportant?: string;
+  link?: string;
+  arc?: ParsedArc;
+}
+
+interface ParsedArc {
+  title: string;
+  summary?: string;
   link?: string;
 }
 
