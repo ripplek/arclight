@@ -13,6 +13,15 @@ sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('busy_timeout = 5000');
 sqlite.pragma('foreign_keys = ON');
 
+export function listTableColumns(tableName: string): string[] {
+  try {
+    const rows = sqlite.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+    return rows.map((row) => row.name);
+  } catch {
+    return [];
+  }
+}
+
 export const db = drizzle(sqlite, { schema });
 
 export function sqliteAll<T>(query: string, ...params: unknown[]): T[] {

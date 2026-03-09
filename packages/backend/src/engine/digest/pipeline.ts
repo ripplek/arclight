@@ -7,6 +7,7 @@ import { rankItems, type RankedItem } from './ranking.js';
 import { renderDigest, type DigestTier } from './renderer.js';
 import { aiEnhanceItems, type EnhancedItem } from './ai-enhance.js';
 import { getItemArcMap } from './arc-context.js';
+import { getBuzzHighlights } from './buzz-highlights.js';
 import { dedup } from '../dedup.js';
 import type { NormalizedItem } from '../normalizer.js';
 import { logger } from '../../shared/logger.js';
@@ -137,8 +138,13 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     }
   }
 
+  // 5.75. Lightweight Buzz highlights stub for Daily/Deep digests
+  const buzzHighlights = tier === 'daily' || tier === 'deep'
+    ? await getBuzzHighlights(userId, { limit: 3, withinHours: 24 })
+    : [];
+
   // 6. Render
-  const { markdown, html } = renderDigest(enhancedItems, tier, date);
+  const { markdown, html } = renderDigest(enhancedItems, tier, date, { buzzHighlights });
 
   // 7. Store
   const arcIds = [

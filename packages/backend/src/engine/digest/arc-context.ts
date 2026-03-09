@@ -3,6 +3,7 @@ import { arcItems, storyArcs } from '../../db/schema.js';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { ArcStatus } from '../arc/types.js';
 import { logger } from '../../shared/logger.js';
+import { hasRequiredColumns } from './schema-compat.js';
 
 export interface ItemArcInfo {
   arcId: string;
@@ -10,6 +11,9 @@ export interface ItemArcInfo {
   arcStatus: ArcStatus;
   arcSummary: string | null;
 }
+
+const STORY_ARC_CONTEXT_COLUMNS = ['id', 'user_id', 'title', 'summary', 'status', 'buzz_score'] as const;
+const ARC_ITEM_CONTEXT_COLUMNS = ['arc_id', 'item_id'] as const;
 
 /**
  * Build a mapping from itemId -> Arc info for digest items.
@@ -23,46 +27,38 @@ export async function getItemArcMap(
     return new Map();
   }
 
+  // Pre-check: skip entirely if legacy schema detected
+  if (
+    !hasRequiredColumns('story_arcs', [...STORY_ARC_CONTEXT_COLUMNS]) ||
+    !hasRequiredColumns('arc_items', [...ARC_ITEM_CONTEXT_COLUMNS])
+  ) {
+    logger.info({ userId }, 'Arc context skipped: legacy story_arcs/arc_items schema detected');
+    return new Map();
+  }
+
   const uniqueItemIds = [...new Set(itemIds)];
 
   try {
-    let rows: Array<{
-      itemId: string;
-      arcId: string;
-      title: string;
-      status: string;
-      summary: string | null;
-    }>;
-
-    try {
-      // Primary path for the latest schema.
-      // ORDER BY buzzScore DESC ensures deterministic arc selection (highest buzz wins).
-      rows = await db
-        .select({
-          itemId: arcItems.itemId,
-          arcId: storyArcs.id,
-          title: storyArcs.title,
-          status: storyArcs.status,
-          summary: storyArcs.summary,
-        })
-        .from(arcItems)
-        .innerJoin(storyArcs, eq(arcItems.arcId, storyArcs.id))
-        .where(
-          and(
-            inArray(arcItems.itemId, uniqueItemIds),
-            eq(storyArcs.userId, userId),
-            inArray(storyArcs.status, ['active', 'stale']),
-          ),
-        )
-        .orderBy(desc(storyArcs.buzzScore));
-    } catch (err) {
-      if (!isMissingBuzzScoreColumnError(err)) {
-        throw err;
-      }
-
-      logger.info({ userId }, 'Arc context query falling back to legacy story_arcs schema');
-      rows = getLegacyItemArcRows(uniqueItemIds, userId);
-    }
+    // Primary path for the latest schema.
+    // ORDER BY buzzScore DESC ensures deterministic arc selection (highest buzz wins).
+    const rows = await db
+      .select({
+        itemId: arcItems.itemId,
+        arcId: storyArcs.id,
+        title: storyArcs.title,
+        status: storyArcs.status,
+        summary: storyArcs.summary,
+      })
+      .from(arcItems)
+      .innerJoin(storyArcs, eq(arcItems.arcId, storyArcs.id))
+      .where(
+        and(
+          inArray(arcItems.itemId, uniqueItemIds),
+          eq(storyArcs.userId, userId),
+          inArray(storyArcs.status, ['active', 'stale']),
+        ),
+      )
+      .orderBy(desc(storyArcs.buzzScore));
 
     if (rows.length === 0) {
       return new Map();
@@ -98,54 +94,4 @@ function buildItemArcMap(
   }
 
   return itemArcMap;
-}
-
-function getLegacyItemArcRows(
-  itemIds: string[],
-  userId: string,
-): Array<{
-  itemId: string;
-  arcId: string;
-  title: string;
-  status: string;
-  summary: string | null;
-}> {
-  const placeholders = itemIds.map(() => '?').join(', ');
-  const rows = sqliteAll<{
-    itemId: string;
-    arcId: string;
-    title: string;
-    status: string;
-    summary: string | null;
-  }>(
-    `
-      SELECT
-        arc_items.item_id AS itemId,
-        story_arcs.id AS arcId,
-        story_arcs.title AS title,
-        story_arcs.status AS status,
-        story_arcs.summary AS summary
-      FROM arc_items
-      INNER JOIN story_arcs ON arc_items.arc_id = story_arcs.id
-      WHERE arc_items.item_id IN (${placeholders})
-        AND story_arcs.user_id = ?
-        AND story_arcs.status IN ('active', 'stale')
-      ORDER BY story_arcs.last_updated DESC, story_arcs.item_count DESC, story_arcs.id ASC
-    `,
-    ...itemIds,
-    userId,
-  );
-
-  return rows;
-}
-
-function isMissingBuzzScoreColumnError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') {
-    return false;
-  }
-
-  const sqliteError = err as { code?: string; message?: string };
-  return sqliteError.code === 'SQLITE_ERROR'
-    && typeof sqliteError.message === 'string'
-    && sqliteError.message.includes('story_arcs.buzz_score');
 }
