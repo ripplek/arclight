@@ -1,6 +1,6 @@
 import { db } from '../../db/client.js';
 import { arcItems, storyArcs } from '../../db/schema.js';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { ArcStatus } from '../arc/types.js';
 import { logger } from '../../shared/logger.js';
 
@@ -26,56 +26,42 @@ export async function getItemArcMap(
   try {
     const uniqueItemIds = [...new Set(itemIds)];
 
-    const itemArcLinks = await db
+    // Single JOIN query scoped to userId — avoids fetching cross-user arc links
+    // ORDER BY buzzScore DESC ensures deterministic arc selection (highest buzz wins)
+    const rows = await db
       .select({
         itemId: arcItems.itemId,
-        arcId: arcItems.arcId,
-      })
-      .from(arcItems)
-      .where(inArray(arcItems.itemId, uniqueItemIds));
-
-    if (itemArcLinks.length === 0) {
-      return new Map();
-    }
-
-    const uniqueArcIds = [...new Set(itemArcLinks.map((link) => link.arcId))];
-    const arcs = await db
-      .select({
-        id: storyArcs.id,
+        arcId: storyArcs.id,
         title: storyArcs.title,
         status: storyArcs.status,
         summary: storyArcs.summary,
+        buzzScore: storyArcs.buzzScore,
       })
-      .from(storyArcs)
+      .from(arcItems)
+      .innerJoin(storyArcs, eq(arcItems.arcId, storyArcs.id))
       .where(
         and(
-          inArray(storyArcs.id, uniqueArcIds),
+          inArray(arcItems.itemId, uniqueItemIds),
           eq(storyArcs.userId, userId),
           inArray(storyArcs.status, ['active', 'stale']),
         ),
-      );
+      )
+      .orderBy(desc(storyArcs.buzzScore));
 
-    if (arcs.length === 0) {
+    if (rows.length === 0) {
       return new Map();
     }
 
-    const arcById = new Map<string, ItemArcInfo>(
-      arcs.map((arc) => [
-        arc.id,
-        {
-          arcId: arc.id,
-          arcTitle: arc.title,
-          arcStatus: arc.status as ArcStatus,
-          arcSummary: arc.summary,
-        },
-      ]),
-    );
-
+    // First-wins: highest buzzScore arc is kept per item (deterministic due to ORDER BY)
     const itemArcMap = new Map<string, ItemArcInfo>();
-    for (const link of itemArcLinks) {
-      const arcInfo = arcById.get(link.arcId);
-      if (arcInfo && !itemArcMap.has(link.itemId)) {
-        itemArcMap.set(link.itemId, arcInfo);
+    for (const row of rows) {
+      if (!itemArcMap.has(row.itemId)) {
+        itemArcMap.set(row.itemId, {
+          arcId: row.arcId,
+          arcTitle: row.title,
+          arcStatus: row.status as ArcStatus,
+          arcSummary: row.summary,
+        });
       }
     }
 

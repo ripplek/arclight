@@ -119,26 +119,22 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     }
   }
 
-  // 5.5. Inject Arc context
-  try {
-    const arcMap = await getItemArcMap(
-      enhancedItems.map((i) => i.id),
-      userId,
-    );
+  // 5.5. Inject Arc context (getItemArcMap never throws — returns empty map on error)
+  const arcMap = await getItemArcMap(
+    enhancedItems.map((i) => i.id),
+    userId,
+  );
 
-    for (const item of enhancedItems) {
-      const arcInfo = arcMap.get(item.id);
-      if (arcInfo) {
-        item.arcInfo = {
-          id: arcInfo.arcId,
-          title: arcInfo.arcTitle,
-          status: arcInfo.arcStatus,
-          summary: arcInfo.arcSummary,
-        };
-      }
+  for (const item of enhancedItems) {
+    const arcInfo = arcMap.get(item.id);
+    if (arcInfo) {
+      item.arcInfo = {
+        id: arcInfo.arcId,
+        title: arcInfo.arcTitle,
+        status: arcInfo.arcStatus,
+        summary: arcInfo.arcSummary,
+      };
     }
-  } catch (err) {
-    logger.warn({ error: err }, 'Arc context injection failed, continuing without arc data');
   }
 
   // 6. Render

@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { getLLMClient } from '../llm/client.js';
 import type { RankedItem } from './ranking.js';
+import type { ArcStatus } from '../arc/types.js';
 import { logger } from '../../shared/logger.js';
 
 /** AI-enhanced metadata for each item */
@@ -20,7 +21,7 @@ export interface EnhancedItem extends RankedItem {
   arcInfo?: {
     id: string;
     title: string;
-    status: string;
+    status: ArcStatus;
     summary: string | null;
   };
 }
