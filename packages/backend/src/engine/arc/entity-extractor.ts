@@ -22,7 +22,7 @@ const KNOWN_ENTITIES = [
   'GitHub', 'GitLab', 'Bitbucket', 'Figma', 'Notion', 'Slack', 'Discord',
   'Zoom', 'Teams', 'Google Meet', 'Webex',
   'TikTok', 'Instagram', 'WhatsApp', 'Telegram', 'Signal', 'WeChat', 'Line',
-  'YouTube', 'Twitch', 'Reddit', 'Twitter', 'X', 'Threads', 'Bluesky', 'Mastodon',
+  'YouTube', 'Twitch', 'Reddit', 'Twitter', 'Threads', 'Bluesky', 'Mastodon',
   'AWS', 'Azure', 'Google Cloud', 'GCP', 'Cloudflare', 'Vercel', 'Supabase',
   'Kubernetes', 'Docker', 'Terraform', 'Ansible',
 
@@ -44,7 +44,7 @@ const KNOWN_ENTITIES = [
 
   // === Geopolitical Orgs / Groups ===
   'NATO', 'UN', 'WHO', 'FDA', 'SEC', 'FTC', 'FCC', 'EPA', 'DOJ', 'FBI', 'CIA', 'NSA',
-  'EU', 'ASEAN', 'BRICS', 'G7', 'G20', 'AUKUS', 'Quad', 'SCO', 'APEC', 'RCEP',
+  'ASEAN', 'BRICS', 'G7', 'G20', 'AUKUS', 'Quad', 'SCO', 'APEC', 'RCEP',
   'Hamas', 'Hezbollah', 'Houthi', 'Taliban', 'ISIS', 'Al-Qaeda',
   'WTO', 'ICC', 'ICJ', 'IAEA', 'UNESCO', 'UNICEF', 'UNHCR',
   'CCP', 'Politburo', 'State Council', 'PLA', 'NDRC',
@@ -63,7 +63,7 @@ const KNOWN_ENTITIES = [
   '中国', '美国', '欧盟', '日本', '韩国', '俄罗斯', '乌克兰', '台湾', '香港', '新加坡',
   '腾讯', '阿里巴巴', '字节跳动', '华为', '英伟达', '微软', '谷歌', '苹果', '特斯拉',
   '百度', '小米', '京东', '美团', '拼多多', '网易', '比亚迪', '蔚来', '小鹏', '理想',
-  '台积电', '三星', '索尼', '高通', '英特尔', 'AMD', '中芯国际', '长江存储',
+  '台积电', '三星', '索尼', '高通', '英特尔', '中芯国际', '长江存储',
   '中国人民银行', '央行', '发改委', '工信部', '商务部', '外交部', '科技部',
   '国务院', '中共中央', '全国人大', '全国政协',
   '习近平', '李强', '王毅', '秦刚',
