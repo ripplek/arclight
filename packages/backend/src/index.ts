@@ -11,6 +11,7 @@ import { preferencesRoutes } from './routes/preferences.js';
 import { digestRoutes } from './routes/digests.js';
 import { pushRoutes } from './routes/push.js';
 import { arcRoutes } from './routes/arcs.js';
+import { buzzRoutes } from './routes/buzz.js';
 import { getScheduler } from './engine/scheduler.js';
 import { checkAndGenerateDigests } from './scheduler/jobs/generate-digest.js';
 import { initPushChannels } from './engine/push/index.js';
@@ -50,6 +51,7 @@ app.route('/api/v1/me/preferences', preferencesRoutes);
 app.route('/api/v1/me/digests', digestRoutes);
 app.route('/api/v1/push', pushRoutes);
 app.route('/api/v1/arcs', arcRoutes);
+app.route('/api/v1/buzz', buzzRoutes);
 
 export type AppType = typeof app;
 
