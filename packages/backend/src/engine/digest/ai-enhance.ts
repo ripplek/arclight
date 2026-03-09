@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getLLMClient } from '../llm/client.js';
 import type { RankedItem } from './ranking.js';
 import type { ArcStatus } from '../arc/types.js';
+import type { ItemArcInfo } from './arc-context.js';
 import { logger } from '../../shared/logger.js';
 
 /** AI-enhanced metadata for each item */
@@ -44,7 +45,7 @@ const enhanceResultSchema = z.array(
  */
 export async function aiEnhanceItems(
   items: RankedItem[],
-  options: { includeWhyImportant?: boolean } = {},
+  options: { includeWhyImportant?: boolean; itemArcMap?: Map<string, ItemArcInfo> } = {},
 ): Promise<EnhancedItem[]> {
   const llm = getLLMClient();
 
@@ -62,7 +63,16 @@ export async function aiEnhanceItems(
     const itemList = batch
       .map((it, idx) => {
         const snippet = it.content ? it.content.slice(0, 200) : '';
-        return `${idx + 1}. [${it.title}]${snippet ? `\n   摘要: ${snippet}` : ''}`;
+        let line = `${idx + 1}. [${it.title}]${snippet ? `\n   摘要: ${snippet}` : ''}`;
+        // Inject arc storyline context when available (only if arc has a summary)
+        const arcInfo = options.itemArcMap?.get(it.id);
+        if (arcInfo?.arcSummary) {
+          const truncatedSummary = arcInfo.arcSummary.length > 50
+            ? arcInfo.arcSummary.slice(0, 50) + '...'
+            : arcInfo.arcSummary;
+          line += `\n   该新闻属于故事线「${arcInfo.arcTitle}」（${truncatedSummary}），请据此生成 whyImportant`;
+        }
+        return line;
       })
       .join('\n');
 
