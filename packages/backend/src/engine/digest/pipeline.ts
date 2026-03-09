@@ -100,7 +100,14 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
   // 4. Top N
   const topItems = rankedItems.slice(0, itemCount);
 
-  // 5. AI Enhancement (categorize, translate, summarize, context, why-important)
+  // 5. Resolve Arc context early so AI enhance can use storyline background
+  // (getItemArcMap never throws — returns empty map on error)
+  const arcMap = await getItemArcMap(
+    topItems.map((i) => i.id),
+    userId,
+  );
+
+  // 5.2. AI Enhancement (categorize, translate, summarize, context, why-important)
   // Enable AI enhancement if either user preferences or env var configures an LLM
   let enhancedItems: EnhancedItem[] = topItems;
   const llmEnabled =
@@ -111,6 +118,7 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     try {
       enhancedItems = await aiEnhanceItems(topItems, {
         includeWhyImportant: tier === 'daily' || tier === 'deep',
+        itemArcMap: arcMap.size > 0 ? arcMap : undefined,
       });
       logger.info(
         { enhanced: enhancedItems.filter((i) => i.enhanced).length, total: enhancedItems.length },
@@ -121,12 +129,7 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     }
   }
 
-  // 5.5. Inject Arc context (getItemArcMap never throws — returns empty map on error)
-  const arcMap = await getItemArcMap(
-    enhancedItems.map((i) => i.id),
-    userId,
-  );
-
+  // 5.5. Inject Arc context onto enhanced items for renderer display
   for (const item of enhancedItems) {
     const arcInfo = arcMap.get(item.id);
     if (arcInfo) {
