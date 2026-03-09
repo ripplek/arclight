@@ -121,6 +121,11 @@ async function addItemToArc(
     keywords: nextKeywords,
     lastItemAt: occurredAt,
   });
+
+  getArcLLMQueue().enqueue({
+    type: 'summary_update',
+    arcId,
+  });
 }
 
 async function createArcFromCandidateGroup(userId: string, group: CandidateGroup): Promise<void> {
@@ -191,6 +196,10 @@ async function createArcFromCandidateGroup(userId: string, group: CandidateGroup
     type: 'title_generate',
     arcId,
   });
+  getArcLLMQueue().enqueue({
+    type: 'summary_update',
+    arcId,
+  });
 
   logger.info({ userId, arcId, itemCount, sourceCount, title }, 'New story arc created from candidate pool');
 }
@@ -223,4 +232,3 @@ function resolveOccurredAt(item: ArcProcessItem): number {
 function dateKey(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
-
