@@ -17,6 +17,7 @@ import { initPushChannels } from './engine/push/index.js';
 import { retryFailedPushes } from './scheduler/jobs/retry-push.js';
 import { cleanupOldArcs, updateArcStatuses } from './engine/arc/lifecycle.js';
 import { getCandidatePool } from './engine/arc/candidate-pool.js';
+import { getArcLLMQueue } from './engine/arc/llm-queue.js';
 
 const app = new Hono();
 
@@ -65,6 +66,10 @@ scheduler.start();
 // Initialize push channels
 initPushChannels();
 
+// Initialize arc LLM queue
+const arcLLMQueue = getArcLLMQueue();
+arcLLMQueue.start();
+
 // Digest generation cron — every minute, check if any user digest is due
 cron.schedule('* * * * *', () => {
   checkAndGenerateDigests().catch((err) => logger.error({ err }, 'Digest scheduler error'));
@@ -86,9 +91,11 @@ cron.schedule('0 * * * *', () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   scheduler.stop();
+  arcLLMQueue.stop();
   process.exit(0);
 });
 process.on('SIGTERM', () => {
   scheduler.stop();
+  arcLLMQueue.stop();
   process.exit(0);
 });
