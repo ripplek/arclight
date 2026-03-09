@@ -59,13 +59,14 @@ export class ArcLLMQueue {
 
   private async processBatch(): Promise<void> {
     if (this.processing || this.queue.length === 0) return;
-    this.processing = true;
 
+    const llm = getLLMClient();
+    if (!llm.isEnabled) return; // Leave tasks in queue — retry when LLM becomes available
+
+    this.processing = true;
     const batch = this.queue.splice(0, BATCH_SIZE);
 
     try {
-      const llm = getLLMClient();
-      if (!llm.isEnabled) return;
 
       for (const task of batch) {
         try {
@@ -115,7 +116,7 @@ export class ArcLLMQueue {
       .where(eq(storyArcs.id, arcId))
       .get();
 
-    if (!arc || arc.titleSource === 'user') return;
+    if (!arc || arc.titleSource === 'user' || arc.titleSource === 'llm') return;
 
     const headlines = Array.from(
       new Set(
