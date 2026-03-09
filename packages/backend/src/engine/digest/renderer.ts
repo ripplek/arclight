@@ -64,6 +64,10 @@ function renderDailyEnhanced(items: EnhancedItem[], date: string): RenderOutput 
 
       // Markdown
       let md = `**${globalIdx}. ${e.chineseTitle}**`;
+      const arcMarkdown = renderArcMarkdown(item.arcInfo);
+      if (arcMarkdown) {
+        md += `\n${arcMarkdown}`;
+      }
       md += `\n${e.summary}`;
       if (e.context) {
         md += `\n📎 _${e.context}_`;
@@ -81,6 +85,10 @@ function renderDailyEnhanced(items: EnhancedItem[], date: string): RenderOutput 
       // HTML
       let html = `<div class="digest-item" style="margin-bottom:1.2em;padding:0.8em;border-left:3px solid #e0e0e0">`;
       html += `<div style="font-weight:600;font-size:1.05em">${globalIdx}. ${escapeHtml(e.chineseTitle)}</div>`;
+      const arcHtml = renderArcHtml(item.arcInfo);
+      if (arcHtml) {
+        html += arcHtml;
+      }
       html += `<div style="color:#444;margin:0.3em 0">${escapeHtml(e.summary)}</div>`;
       if (e.context) {
         html += `<div style="color:#888;font-size:0.9em">📎 ${escapeHtml(e.context)}</div>`;
@@ -105,9 +113,11 @@ function renderDailyEnhanced(items: EnhancedItem[], date: string): RenderOutput 
     mdSections.push(`\n## 📌 其他\n`);
     htmlSections.push(`<h2>📌 其他</h2>`);
     for (const item of unenhanced) {
-      mdSections.push(`**${globalIdx}. ${item.title}**\n🔗 [阅读原文](${item.url})\n`);
+      const arcMarkdown = renderArcMarkdown(item.arcInfo);
+      const arcHtml = renderArcHtml(item.arcInfo);
+      mdSections.push(`**${globalIdx}. ${item.title}**${arcMarkdown ? `\n${arcMarkdown}` : ''}\n🔗 [阅读原文](${item.url})\n`);
       htmlSections.push(
-        `<div class="digest-item"><strong>${globalIdx}. ${escapeHtml(item.title)}</strong><br/><a href="${escapeHtml(item.url)}">阅读原文</a></div>`,
+        `<div class="digest-item"><strong>${globalIdx}. ${escapeHtml(item.title)}</strong>${arcHtml || ''}<br/><a href="${escapeHtml(item.url)}">阅读原文</a></div>`,
       );
       globalIdx++;
     }
@@ -136,6 +146,10 @@ function renderDeepEnhanced(items: EnhancedItem[], date: string): RenderOutput {
       const e = item.enhanced!;
 
       let md = `### ${globalIdx}. ${e.chineseTitle}\n\n`;
+      const arcMarkdown = renderArcMarkdown(item.arcInfo, { deep: true });
+      if (arcMarkdown) {
+        md += `${arcMarkdown}\n\n`;
+      }
       md += `${e.summary}\n\n`;
       if (e.context) {
         md += `> 📎 **背景**：${e.context}\n\n`;
@@ -152,6 +166,10 @@ function renderDeepEnhanced(items: EnhancedItem[], date: string): RenderOutput {
 
       let html = `<div class="digest-item-deep" style="margin-bottom:2em">`;
       html += `<h3>${globalIdx}. ${escapeHtml(e.chineseTitle)}</h3>`;
+      const arcHtml = renderArcHtml(item.arcInfo, { deep: true });
+      if (arcHtml) {
+        html += arcHtml;
+      }
       html += `<p style="font-size:1.05em">${escapeHtml(e.summary)}</p>`;
       if (e.context) {
         html += `<blockquote style="border-left:3px solid #ddd;padding-left:1em;color:#555">📎 <strong>背景</strong>：${escapeHtml(e.context)}</blockquote>`;
@@ -179,6 +197,10 @@ function renderDaily(items: EnhancedItem[], date: string): RenderOutput {
   const sections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
     let md = `### ${i + 1}. ${badge} ${item.title}\n`;
+    const arcMarkdown = renderArcMarkdown(item.arcInfo);
+    if (arcMarkdown) {
+      md += `\n${arcMarkdown}\n`;
+    }
     if (item.contextInjection) {
       md += `\n📎 ${item.contextInjection}\n`;
     }
@@ -195,6 +217,10 @@ function renderDaily(items: EnhancedItem[], date: string): RenderOutput {
     const badge = tierBadge(item.tier);
     let section = `<div class="digest-item" style="margin-bottom:1.5em;padding-bottom:1.5em;border-bottom:1px solid #eee">`;
     section += `<h3>${i + 1}. ${badge} ${escapeHtml(item.title)}</h3>`;
+    const arcHtml = renderArcHtml(item.arcInfo);
+    if (arcHtml) {
+      section += arcHtml;
+    }
     if (item.contextInjection) {
       section += `<p style="color:#666;font-size:0.9em">📎 ${escapeHtml(item.contextInjection)}</p>`;
     }
@@ -214,6 +240,10 @@ function renderDeep(items: EnhancedItem[], date: string): RenderOutput {
   const sections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
     let md = `## ${i + 1}. ${badge} ${item.title}\n\n`;
+    const arcMarkdown = renderArcMarkdown(item.arcInfo, { deep: true });
+    if (arcMarkdown) {
+      md += `${arcMarkdown}\n\n`;
+    }
     if (item.contextInjection) {
       md += `> 📎 **背景**：${item.contextInjection}\n\n`;
     }
@@ -231,6 +261,10 @@ function renderDeep(items: EnhancedItem[], date: string): RenderOutput {
     const badge = tierBadge(item.tier);
     let section = `<div class="digest-item-deep" style="margin-bottom:2em">`;
     section += `<h2>${i + 1}. ${badge} ${escapeHtml(item.title)}</h2>`;
+    const arcHtml = renderArcHtml(item.arcInfo, { deep: true });
+    if (arcHtml) {
+      section += arcHtml;
+    }
     if (item.contextInjection) {
       section += `<blockquote style="border-left:3px solid #ddd;padding-left:1em;color:#555">📎 <strong>背景</strong>：${escapeHtml(item.contextInjection)}</blockquote>`;
     }
@@ -248,6 +282,53 @@ function renderDeep(items: EnhancedItem[], date: string): RenderOutput {
 }
 
 // ── Helpers ──
+
+function renderArcMarkdown(
+  arcInfo: EnhancedItem['arcInfo'],
+  options: { deep?: boolean } = {},
+): string {
+  if (!arcInfo?.title?.trim()) {
+    return '';
+  }
+
+  const title = arcInfo.title.trim();
+  const summary = compactArcSummary(arcInfo.summary);
+  const detail = summary ? ` · ${summary}` : '';
+
+  if (options.deep) {
+    return `> 🧵 **故事线**：${title}${detail}`;
+  }
+
+  return `🧵 故事线：**${title}**${detail}`;
+}
+
+function renderArcHtml(
+  arcInfo: EnhancedItem['arcInfo'],
+  options: { deep?: boolean } = {},
+): string {
+  if (!arcInfo?.title?.trim()) {
+    return '';
+  }
+
+  const title = escapeHtml(arcInfo.title.trim());
+  const summary = compactArcSummary(arcInfo.summary);
+  const detail = summary ? ` <span style="color:#6b7280">· ${escapeHtml(summary)}</span>` : '';
+
+  if (options.deep) {
+    return `<blockquote style="border-left:3px solid #8b5cf6;padding-left:1em;color:#5b21b6">🧵 <strong>故事线</strong>：${title}${detail}</blockquote>`;
+  }
+
+  return `<div style="margin:0.35em 0 0.45em;color:#5b21b6;font-size:0.9em">🧵 <strong>故事线：</strong>${title}${detail}</div>`;
+}
+
+function compactArcSummary(summary: string | null | undefined): string {
+  const normalized = summary?.trim();
+  if (!normalized) {
+    return '';
+  }
+
+  return truncate(normalized, 48);
+}
 
 interface CategoryGroup {
   category: string;
