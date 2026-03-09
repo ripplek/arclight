@@ -199,6 +199,11 @@ export class TelegramChannel implements PushChannel {
       }
     }
 
+    const serendipityBlock = this.formatSerendipity(payload.contentMarkdown, payload.webUrl);
+    if (serendipityBlock) {
+      msg += `\n${serendipityBlock}\n`;
+    }
+
     if (payload.webUrl) {
       msg += `\n📱 <a href="${escapeHtml(payload.webUrl)}">在 ArcLight 中查看完整版</a>`;
     }
@@ -239,10 +244,36 @@ export class TelegramChannel implements PushChannel {
       }
     }
 
+    const serendipityBlock = this.formatSerendipity(payload.contentMarkdown, payload.webUrl);
+    if (serendipityBlock) {
+      msg += `\n${serendipityBlock}\n`;
+    }
+
     if (payload.webUrl) {
       msg += `\n📱 <a href="${escapeHtml(payload.webUrl)}">在 ArcLight 中查看</a>`;
     }
     return msg;
+  }
+
+  private formatSerendipity(markdown: string, baseUrl?: string): string {
+    // Look for the serendipity section: ## 🎲 意外发现
+    const serendipityMatch = markdown.match(
+      /## 🎲 意外发现\s*\n+\*\*(.+?)\*\*\s*\n+_(.+?)_\s*\n+🔗\s*\[.*?\]\(([^\)]+)\)/,
+    );
+
+    if (!serendipityMatch) {
+      return '';
+    }
+
+    const [, title, reason, link] = serendipityMatch;
+    const resolvedLink = this.resolveUrl(link, baseUrl) ?? link;
+
+    let block = `<b>🎲 意外发现</b>\n\n`;
+    block += `<b>${escapeHtml(title)}</b>\n`;
+    block += `<i>${escapeHtml(reason)}</i>\n`;
+    block += `<a href="${escapeHtml(resolvedLink)}">🔗 阅读原文</a>`;
+
+    return block;
   }
 
   private parseMarkdownSections(markdown: string): ParsedSection[] {
