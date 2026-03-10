@@ -1,4 +1,3 @@
-// packages/backend/src/engine/digest/renderer.ts
 import type { RankedItem } from './ranking.js';
 import type { EnhancedItem } from './ai-enhance.js';
 import type { BuzzHighlight } from './buzz-highlights.js';
@@ -83,6 +82,7 @@ function renderDailyEnhanced(
 
     for (const item of group.items) {
       const e = item.enhanced!;
+      const topicMatches = normalizeTopicMatches(item.topicMatches);
 
       // Markdown
       let md = `**${globalIdx}. ${e.chineseTitle}**`;
@@ -98,8 +98,8 @@ function renderDailyEnhanced(
         md += `\n💡 ${e.whyImportant}`;
       }
       md += `\n🔗 [${truncate(item.title, 50)}](${item.url})`;
-      if (item.topicMatches.length > 0) {
-        md += ` · ${item.topicMatches.map((t) => `\`${t}\``).join(' ')}`;
+      if (topicMatches.length > 0) {
+        md += ` · ${topicMatches.map((t) => `\`${t}\``).join(' ')}`;
       }
       md += '\n';
       mdSections.push(md);
@@ -119,8 +119,8 @@ function renderDailyEnhanced(
         html += `<div style="color:#b45309;font-size:0.9em">💡 ${escapeHtml(e.whyImportant)}</div>`;
       }
       html += `<div style="margin-top:0.3em;font-size:0.85em"><a href="${escapeHtml(item.url)}" target="_blank">🔗 ${escapeHtml(truncate(item.title, 60))}</a>`;
-      if (item.topicMatches.length > 0) {
-        html += ` · ${item.topicMatches.map((t) => `<span style="background:#f0f4ff;padding:1px 5px;border-radius:3px;font-size:0.85em">${escapeHtml(t)}</span>`).join(' ')}`;
+      if (topicMatches.length > 0) {
+        html += ` · ${topicMatches.map((t) => `<span style="background:#f0f4ff;padding:1px 5px;border-radius:3px;font-size:0.85em">${escapeHtml(t)}</span>`).join(' ')}`;
       }
       html += `</div></div>`;
       htmlSections.push(html);
@@ -234,6 +234,7 @@ function renderDaily(
 ): RenderOutput {
   const sections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
+    const topicMatches = normalizeTopicMatches(item.topicMatches);
     let md = `### ${i + 1}. ${badge} ${item.title}\n`;
     const arcMarkdown = renderArcMarkdown(item.arcInfo);
     if (arcMarkdown) {
@@ -242,8 +243,8 @@ function renderDaily(
     if (item.contextInjection) {
       md += `\n📎 ${item.contextInjection}\n`;
     }
-    if (item.topicMatches.length > 0) {
-      md += `\n🏷️ ${item.topicMatches.join(', ')}\n`;
+    if (topicMatches.length > 0) {
+      md += `\n🏷️ ${topicMatches.join(', ')}\n`;
     }
     md += `\n🔗 [阅读原文](${item.url})\n`;
     return md;
@@ -255,6 +256,7 @@ function renderDaily(
 
   const htmlSections = items.map((item, i) => {
     const badge = tierBadge(item.tier);
+    const topicMatches = normalizeTopicMatches(item.topicMatches);
     let section = `<div class="digest-item" style="margin-bottom:1.5em;padding-bottom:1.5em;border-bottom:1px solid #eee">`;
     section += `<h3>${i + 1}. ${badge} ${escapeHtml(item.title)}</h3>`;
     const arcHtml = renderArcHtml(item.arcInfo);
@@ -264,8 +266,8 @@ function renderDaily(
     if (item.contextInjection) {
       section += `<p style="color:#666;font-size:0.9em">📎 ${escapeHtml(item.contextInjection)}</p>`;
     }
-    if (item.topicMatches.length > 0) {
-      section += `<p style="font-size:0.85em">🏷️ ${item.topicMatches.map((t) => `<span style="background:#f0f0f0;padding:2px 6px;border-radius:4px;margin-right:4px">${escapeHtml(t)}</span>`).join('')}</p>`;
+    if (topicMatches.length > 0) {
+      section += `<p style="font-size:0.85em">🏷️ ${topicMatches.map((t) => `<span style="background:#f0f0f0;padding:2px 6px;border-radius:4px;margin-right:4px">${escapeHtml(t)}</span>`).join('')}</p>`;
     }
     section += `<p><a href="${escapeHtml(item.url)}" target="_blank">🔗 阅读原文</a></p>`;
     section += `</div>`;
@@ -340,16 +342,21 @@ function renderSerendipityMarkdown(
     return '';
   }
 
-  const { item, reason } = serendipity;
-  const title = item.title || '未知标题';
+  const { item, enhanced, reason } = serendipity;
+  const title = enhanced?.chineseTitle || item.title || '未知标题';
 
   const lines = [
     `## 🎲 意外发现`,
     '',
     `**${title}**`,
-    `_${reason}_`,
-    `🔗 [阅读原文](${item.url})`,
   ];
+
+  if (enhanced?.summary) {
+    lines.push(enhanced.summary);
+  }
+
+  lines.push(`_${reason}_`);
+  lines.push(`🔗 [阅读原文](${item.url})`);
 
   return lines.join('\n');
 }
@@ -361,12 +368,15 @@ function renderSerendipityHtml(
     return '';
   }
 
-  const { item, reason } = serendipity;
-  const title = item.title || '未知标题';
+  const { item, enhanced, reason } = serendipity;
+  const title = enhanced?.chineseTitle || item.title || '未知标题';
 
   let html = `<h2>🎲 意外发现</h2>`;
   html += `<div style="margin-bottom:1em;padding:0.8em 1em;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:8px">`;
   html += `<div style="font-weight:600;font-size:1.02em">${escapeHtml(title)}</div>`;
+  if (enhanced?.summary) {
+    html += `<div style="color:#444;margin:0.35em 0;line-height:1.6">${escapeHtml(enhanced.summary)}</div>`;
+  }
   html += `<div style="color:#15803d;font-size:0.9em;margin:0.3em 0"><i>${escapeHtml(reason)}</i></div>`;
   html += `<div style="margin-top:0.3em;font-size:0.85em"><a href="${escapeHtml(item.url)}" target="_blank">🔗 阅读原文</a></div>`;
   html += `</div>`;
@@ -451,6 +461,9 @@ function groupByCategory(items: EnhancedItem[]): CategoryGroup[] {
     .map(([category, { emoji, items }]) => ({ category, emoji, items }));
 }
 
+function normalizeTopicMatches(topicMatches: RankedItem['topicMatches']): string[] {
+  return [...new Set(topicMatches.map((topic) => topic.trim()).filter(Boolean))];
+}
 
 function renderBuzzMarkdown(
   highlights: BuzzHighlight[] | undefined,

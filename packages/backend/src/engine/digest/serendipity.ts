@@ -1,10 +1,12 @@
-// packages/backend/src/engine/digest/serendipity.ts
 import type { RankedItem } from './ranking.js';
+import type { EnhancedMeta } from './ai-enhance.js';
 import { logger } from '../../shared/logger.js';
 
 export interface SerendipityItem {
   /** The selected feed item */
   item: RankedItem;
+  /** Optional AI-enhanced metadata for rendering */
+  enhanced?: EnhancedMeta;
   /** One-liner explaining why this was picked */
   reason: string;
 }
