@@ -49,9 +49,10 @@ function normalizeOne(
   source: FetchSource,
   fetchedAt: Date,
 ): NormalizedItem | null {
-  const url = raw.url?.trim();
-  if (!url) return null;
+  const rawUrl = raw.url?.trim();
+  if (!rawUrl) return null;
 
+  const url = decodeGoogleNewsUrl(rawUrl) || rawUrl;
   const title = (raw.title || '').trim();
   const content = (raw.content || '').trim();
 
@@ -62,7 +63,7 @@ function normalizeOne(
   return {
     id: nanoid(),
     sourceId: source.id,
-    externalId: raw.externalId || url,
+    externalId: raw.externalId || rawUrl,
     url,
     title,
     content: content.slice(0, 5000),
@@ -75,6 +76,20 @@ function normalizeOne(
     tags: (source.fetchConfig?.tags as string[]) || [],
     dedupHash: computeDedupHash(url, title),
   };
+}
+
+function decodeGoogleNewsUrl(url: string): string | null {
+  if (!url.startsWith('CBMi')) {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(url, 'base64url').toString('latin1');
+    const match = decoded.match(/https?:\/\/[^\s"'<>\\\x00-\x1F\x7F]+/i);
+    return match?.[0] || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Simple language detection heuristic via Unicode ranges */

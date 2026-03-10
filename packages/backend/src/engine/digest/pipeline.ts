@@ -1,4 +1,3 @@
-// packages/backend/src/engine/digest/pipeline.ts
 import { db } from '../../db/client.js';
 import { feedItems, userPreferences, digests } from '../../db/schema.js';
 import { eq, desc, gte } from 'drizzle-orm';
@@ -149,9 +148,25 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
 
   // 5.8. Serendipity slot for Daily/Deep digests
   const digestItemIds = new Set(topItems.map((i) => i.id));
-  const serendipity = tier === 'daily' || tier === 'deep'
+  let serendipity = tier === 'daily' || tier === 'deep'
     ? pickSerendipityItem(rankedItems, digestItemIds)
     : null;
+
+  if (llmEnabled && serendipity) {
+    try {
+      const [enhancedSerendipity] = await aiEnhanceItems([serendipity.item], {
+        itemArcMap: arcMap.size > 0 ? arcMap : undefined,
+      });
+      if (enhancedSerendipity?.enhanced) {
+        serendipity = {
+          ...serendipity,
+          enhanced: enhancedSerendipity.enhanced,
+        };
+      }
+    } catch (err) {
+      logger.warn({ error: err, itemId: serendipity.item.id }, 'Serendipity AI enhancement failed');
+    }
+  }
 
   // 6. Render
   const { markdown, html } = renderDigest(enhancedItems, tier, date, { buzzHighlights, serendipity });
