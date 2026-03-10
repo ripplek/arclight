@@ -11,6 +11,7 @@ import { pickSerendipityItem } from './serendipity.js';
 import { dedup } from '../dedup.js';
 import type { NormalizedItem } from '../normalizer.js';
 import { logger } from '../../shared/logger.js';
+import { isGoogleNewsEncodedUrl, resolveGoogleNewsUrl } from '../google-news-url.js';
 
 export interface GenerateOptions {
   tier: DigestTier;
@@ -99,6 +100,13 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
   // 4. Top N
   const topItems = rankedItems.slice(0, itemCount);
 
+  const digestItemIds = new Set(topItems.map((i) => i.id));
+  let serendipity = tier === 'daily' || tier === 'deep'
+    ? pickSerendipityItem(rankedItems, digestItemIds)
+    : null;
+
+  await resolveDigestItemUrls({ dryRun, groups: [topItems, serendipity?.item ? [serendipity.item] : []] });
+
   // 5. Resolve Arc context early so AI enhance can use storyline background
   // (getItemArcMap never throws — returns empty map on error)
   const arcMap = await getItemArcMap(
@@ -147,11 +155,6 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
     : [];
 
   // 5.8. Serendipity slot for Daily/Deep digests
-  const digestItemIds = new Set(topItems.map((i) => i.id));
-  let serendipity = tier === 'daily' || tier === 'deep'
-    ? pickSerendipityItem(rankedItems, digestItemIds)
-    : null;
-
   if (llmEnabled && serendipity) {
     try {
       const [enhancedSerendipity] = await aiEnhanceItems([serendipity.item], {
@@ -211,6 +214,37 @@ export async function generateDigest(userId: string, options: GenerateOptions): 
       pipelineDurationMs: Date.now() - start,
     },
   };
+}
+
+async function resolveDigestItemUrls(options: { dryRun: boolean; groups: RankedItem[][] }): Promise<void> {
+  const updates = new Map<string, string>();
+  const items = options.groups.flat();
+
+  for (const item of items) {
+    if (!isGoogleNewsEncodedUrl(item.url)) {
+      continue;
+    }
+
+    const resolvedUrl = await resolveGoogleNewsUrl(item.url);
+    if (!resolvedUrl || resolvedUrl === item.url) {
+      continue;
+    }
+
+    item.url = resolvedUrl;
+    updates.set(item.id, resolvedUrl);
+  }
+
+  if (updates.size === 0) {
+    return;
+  }
+
+  if (!options.dryRun) {
+    for (const [itemId, url] of updates) {
+      await db.update(feedItems).set({ url }).where(eq(feedItems.id, itemId));
+    }
+  }
+
+  logger.info({ updated: updates.size, persisted: !options.dryRun }, 'Resolved Google News article URLs for digest candidates');
 }
 
 function getDefaultCount(tier: DigestTier): number {

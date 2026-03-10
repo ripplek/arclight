@@ -2,6 +2,7 @@
 import { nanoid } from 'nanoid';
 import type { RawFeedItem } from '@arclight/shared';
 import type { FetchSource } from './fetch-manager.js';
+import { extractLegacyGoogleNewsUrl, toGoogleNewsArticleUrl } from './google-news-url.js';
 
 export interface NormalizedItem {
   id: string;
@@ -52,7 +53,7 @@ function normalizeOne(
   const rawUrl = raw.url?.trim();
   if (!rawUrl) return null;
 
-  const url = decodeGoogleNewsUrl(rawUrl) || rawUrl;
+  const url = extractLegacyGoogleNewsUrl(rawUrl) || toGoogleNewsArticleUrl(rawUrl) || rawUrl;
   const title = (raw.title || '').trim();
   const content = (raw.content || '').trim();
 
@@ -76,20 +77,6 @@ function normalizeOne(
     tags: (source.fetchConfig?.tags as string[]) || [],
     dedupHash: computeDedupHash(url, title),
   };
-}
-
-function decodeGoogleNewsUrl(url: string): string | null {
-  if (!url.startsWith('CBMi')) {
-    return null;
-  }
-
-  try {
-    const decoded = Buffer.from(url, 'base64url').toString('latin1');
-    const match = decoded.match(/https?:\/\/[^\s"'<>\\\x00-\x1F\x7F]+/i);
-    return match?.[0] || null;
-  } catch {
-    return null;
-  }
 }
 
 /** Simple language detection heuristic via Unicode ranges */
